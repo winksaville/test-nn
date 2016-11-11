@@ -18,6 +18,7 @@
 
 #include <stdarg.h>
 #include <stdio.h>
+#include <malloc.h>
 
 Status Neuron_init(Neuron* n, int num_in, int num_out) {
   Status status;
@@ -65,40 +66,80 @@ done:
   return status;
 }
 
-Status NeuralNet_init(NeuralNet* nn, int num_in, int num_out) {
+Status NeuralNet_init(NeuralNet* nn, int num_in, int num_hidden, int num_out) {
   Status status;
-  printf("NeuralNet_init:+%p num_in=%d num_out=%d\n", nn, num_in, num_out);
+  printf("NeuralNet_init:+%p num_in=%d num_hidden=%d num_out=%d\n", nn, num_in, num_hidden, num_out);
 
   nn->num_in = num_in;
+  nn->num_hidden = num_hidden;
+  nn->added_hidden = 0;
   nn->num_out = num_out;
+  nn->neurons_in = NULL;
+  nn->neurons_out = NULL;
+  nn->neurons_hidden = NULL;
+
+  nn->neurons_in = calloc(nn->num_in, sizeof(Neuron));
+  if (nn->neurons_in == NULL) { status = STATUS_OOM; goto done; }
+
+  nn->neurons_hidden = calloc(nn->num_hidden, sizeof(Neuron*));
+  if (nn->neurons_hidden == NULL) { status = STATUS_OOM; goto done; }
+
+  nn->neurons_out = calloc(nn->num_out, sizeof(Neuron));
+  if (nn->neurons_out == NULL) { status = STATUS_OOM; goto done; }
+
   status = STATUS_OK;
 
+done:
+  if (StatusErr(status)) {
+    NeuralNet_deinit(nn);
+  }
   printf("NeuralNet_init:-%p status=%d\n", StatusVal(status));
   return status;
 }
 
-Status NeuralNet_deinit(NeuralNet* nn) {
+void NeuralNet_deinit(NeuralNet* nn) {
   Status status;
   printf("NeuralNet_deinit:+%p\n", nn);
 
-  status = STATUS_OK;
+  if (nn->neurons_in != NULL) {
+    free(nn->neurons_in);
+    nn->neurons_in = NULL;
+  }
 
-  printf("NeuralNet_deinit:-%p status=%d\n", nn, StatusVal(status));
-  return status;
+  if (nn->neurons_hidden != NULL) {
+    for (int i = 0; i < nn->added_hidden; i++) {
+      free(nn->neurons_hidden[i]);
+      nn->neurons_hidden[i] = NULL;
+    }
+    free(nn->neurons_hidden);
+    nn->neurons_hidden = NULL;
+  }
+
+  if (nn->neurons_out != NULL) {
+    free(nn->neurons_out);
+    nn->neurons_out = NULL;
+  }
+
+  printf("NeuralNet_deinit:-%p\n");
 }
 
-Status NeuralNet_add_hidden(NeuralNet* nn, int num_hidden, ...) {
+Status NeuralNet_add_hidden(NeuralNet* nn, int count) {
   Status status;
-  va_list args;
-  va_start(args, num_hidden);
 
-  printf("NeuralNet_add_hidden:+%p num_hidden=%d\n", nn, num_hidden);
+  printf("NeuralNet_add_hidden:+%p count=%d\n", nn, count);
 
-  for (int i = 0; i < num_hidden; i++) {
-    printf("%p %d=%d\n", nn, i, va_arg(args, int));
+  if (nn->added_hidden >= nn->num_hidden) {
+    status = STATUS_TO_MANY_HIDDEN;
+    goto done;
+  }
+  nn->neurons_hidden[nn->added_hidden] = calloc(count, sizeof(Neuron));
+  if (nn->neurons_hidden[nn->added_hidden] == NULL) {
+    status = STATUS_OOM;
+    goto done;
   }
   status = STATUS_OK;
 
+done:
   printf("NeuralNet_add_hidden:-%p status=%d\n", nn, StatusVal(status));
   return status;
 }

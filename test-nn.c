@@ -22,13 +22,15 @@ int main(int argc, char** argv) {
   Status status;
   printf("test-nn:+\n");
 
-  status = NeuralNet_init(&nn, 2, 2);
+  status = NeuralNet_init(&nn, 2, 1, 2);
   if (StatusErr(status)) goto done;
 
-  status = NeuralNet_deinit(&nn);
+  status = NeuralNet_add_hidden(&nn, 4);
   if (StatusErr(status)) goto done;
 
 done:
+  NeuralNet_deinit(&nn);
+
   printf("test-nn:- status=%d\n", status);
   return 0;
 }

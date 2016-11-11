@@ -18,8 +18,10 @@
 #define _NEURAL_NET_H_
 
 typedef int Status;
-#define STATUS_OK 0
-#define STATUS_ERR 1
+#define STATUS_OK  0 //< OK
+#define STATUS_ERR 1 //< Error
+#define STATUS_OOM 2 //< Out of memory
+#define STATUS_TO_MANY_HIDDEN 2 //< To many calls to NeuralNet_add_hidden
 
 /** Evaluates to true if status is good */
 #define StatusOk(s) ((s) == STATUS_OK)
@@ -40,11 +42,12 @@ typedef struct {
 
 typedef struct {
   int num_in;
-  int num_out;
   int num_hidden;
+  int added_hidden;
+  int num_out;
 
   Neuron* neurons_in;
-  Neuron* neurons_hidden;
+  Neuron** neurons_hidden;
   Neuron* neurons_out;
 } NeuralNet;
 
@@ -52,8 +55,13 @@ Status Neuron_init(Neuron* n, int num_in, int num_out);
 Status Neuron_init_conn_in(Neuron* n, int num_in, Neuron* neurons);
 Status Neuron_init_conn_out(Neuron* n, int num_out, Neuron* neurons);
 
-Status NeuralNet_init(NeuralNet* nn, int num_in, int num_out);
-Status NeuralNet_deinit(NeuralNet* nn);
-Status NeuralNet_add_hidden(NeuralNet* nn, int num_hidden, ...);
+Status NeuralNet_init(NeuralNet* nn, int num_in, int num_hidden, int num_out);
+void NeuralNet_deinit(NeuralNet* nn);
+
+/**
+ * Add a hidden layer. This is expected to be called
+ * num_hidden times as passed to NeuralNet_init.
+ */
+Status NeuralNet_add_hidden(NeuralNet* nn, int count);
 
 #endif
