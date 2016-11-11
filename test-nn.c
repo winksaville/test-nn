@@ -13,13 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "libnn.h"
+#include "NeuralNet.h"
 #include <stdio.h>
 
+NeuralNet nn;
+
 int main(int argc, char** argv) {
-  printf("test-nn\n");
+  Status status;
+  printf("test-nn:+\n");
 
-  libnn_init();
+  status = NeuralNet_init(&nn, 2, 2);
+  if (StatusErr(status)) goto done;
 
+  status = NeuralNet_deinit(&nn);
+  if (StatusErr(status)) goto done;
+
+done:
+  printf("test-nn:- status=%d\n", status);
   return 0;
 }
