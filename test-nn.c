@@ -20,6 +20,32 @@
 
 NeuralNet nn;
 
+#define INPUT_COUNT 2
+typedef struct InputPattern {
+  int count;
+  double data[INPUT_COUNT];
+} InputPattern;
+
+#define OUTPUT_COUNT 1
+typedef struct OutputPattern {
+  int count;
+  double data[OUTPUT_COUNT];
+} OutputPattern;
+
+InputPattern or_input_patterns[] = {
+  { .count = 2, .data[0] = 0, .data[1] = 0 },
+  { .count = 2, .data[0] = 0, .data[1] = 1 },
+  { .count = 2, .data[0] = 1, .data[1] = 0 },
+  { .count = 2, .data[0] = 1, .data[1] = 1 },
+};
+
+OutputPattern or_target_patterns[] = {
+  { .count = 1, .data[0] = 0 },
+  { .count = 1, .data[0] = 1 },
+  { .count = 1, .data[0] = 1 },
+  { .count = 1, .data[0] = 1 },
+};
+
 int main(int argc, char** argv) {
   Status status;
   struct timespec spec;
@@ -37,7 +63,7 @@ int main(int argc, char** argv) {
   srand(0x12345678);
 #endif
 
-  status = NeuralNet_init(&nn, 2, 1, 2);
+  status = NeuralNet_init(&nn, 2, 1, 1);
   if (StatusErr(status)) goto done;
 
   status = NeuralNet_add_hidden(&nn, 4);
@@ -45,6 +71,22 @@ int main(int argc, char** argv) {
 
   status = NeuralNet_start(&nn);
   if (StatusErr(status)) goto done;
+
+
+  OutputPattern or_output;
+
+  NeuralNet_inputs(&nn, &or_input_patterns[0]);
+  NeuralNet_process(&nn);
+  NeuralNet_outputs(&nn, &or_output);
+  NeuralNet_adjust(&nn, &or_output, &or_target_patterns[0]);
+
+  double error = 0.0;
+  for (int i = 0; i < or_output.count; i++) {
+    double diff = or_target_patterns[0].data[i] - or_output.data[i];
+    printf("diff=%lf\n", diff);
+    error += 0.5 * (diff * diff);
+  }
+  printf("Total error=%lf\n", error);
 
   NeuralNet_stop(&nn);
 

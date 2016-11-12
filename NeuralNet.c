@@ -144,9 +144,11 @@ done:
 Status NeuralNet_start(NeuralNet* nn) {
   Status status;
 
-  // Update out_layer and and its layer entry if necessary
-  nn->out_layer = nn->last_hidden + 1;
-  if (nn->out_layer < (nn->max_layers - 1)) {
+  // Update out_layer if necessary
+  if ((nn->last_hidden + 1) < (nn->max_layers - 1)) {
+    // There were fewer hidden layers than expected so
+    // move the output layer to be after the last hidden layer
+    nn->out_layer = nn->last_hidden + 1;
     nn->layers[nn->out_layer].count = nn->layers[nn->max_layers - 1].count;
     nn->layers[nn->out_layer].neurons = nn->layers[nn->max_layers - 1].neurons;
     nn->layers[nn->max_layers - 1].count = 0;
@@ -180,6 +182,69 @@ done:
 
 void NeuralNet_stop(NeuralNet* nn) {
   printf("NeuralNet_stop:+%p\n", nn);
-
   printf("NeuralNet_stop:-%p\n", nn);
+}
+
+void NeuralNet_inputs_(NeuralNet* nn, Pattern* input) {
+  printf("NeuralNet_inputs_:+%p count=%d input_layer count=%d\n", nn, input->count, nn->layers[0].count);
+  for (int n = 0; n < nn->layers[0].count; n++) {
+    // "Calculate" the output for the input neurons
+    Neuron* neuron = &nn->layers[0].neurons[n];
+    neuron->output = input->data[n];
+    printf("NeuralNet_inputs_: %p neuron=%p output=%lf\n", nn, neuron, neuron->output);
+  }
+  printf("NeuralNet_inputs_:-%p\n", nn);
+}
+
+void NeuralNet_process(NeuralNet* nn) {
+  printf("NeuralNet_process_:+%p\n", nn);
+  // Calcuate the output for the fully connected layers,
+  // which start at nn->layers[1]
+  for (int l = 1; l <= nn->out_layer; l++) {
+    NeuronLayer* layer = &nn->layers[l];
+    for (int n = 0; n < layer->count; n++) {
+      // Get the next neuron
+      Neuron* neuron = &layer->neurons[n];
+
+      // Point at the first of the neuron's inputs
+      Neuron* inputs = neuron->inputs->neurons;
+
+      // Point at the neuron's weights array
+      double* weights = neuron->weights;
+
+      // Initialize the weighted_sum to the first weight, this is the bias
+      double weighted_sum = *weights++;
+
+      // Loop thought all of the neuron's inputs summing it against that inputs weight
+      for (int i = 0; i < neuron->inputs->count; i++) {
+        weighted_sum += weights[i] * inputs[i].output;
+      }
+
+      // Calcuate the output using a Sigmoidal Activation function
+      neuron->output = 1.0/(1.0 + exp(-weighted_sum));
+      printf("NeuralNet_process_: %p output=%lf weighted_sum=%lf\n",
+          neuron, neuron->output, weighted_sum);
+    }
+  }
+  printf("NeuralNet_process_:-%p\n", nn);
+}
+
+void NeuralNet_outputs_(NeuralNet* nn, Pattern* output) {
+  int count;
+  printf("NeuralNet_outputs_:+%p count=%d\n", nn, output->count);
+  if (output->count > nn->layers[nn->out_layer].count) {
+    count = nn->layers[nn->out_layer].count;
+  } else {
+    count = output->count;
+  }
+  for (int i = 0; i < count; i++) {
+    output->data[i] = nn->layers[nn->out_layer].neurons[i].output;
+    printf("NeuralNet_outputs_: %p output[%d]=%lf\n", nn, i, output->data[i]);
+  }
+  printf("NeuralNet_outputs_:-%p\n", nn);
+}
+
+void NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target) {
+  printf("NeuralNet_adjust_:+%p output count=%d target count=%d\n", nn, output->count, target->count);
+  printf("NeuralNet_adjust_:-%p\n", nn);
 }

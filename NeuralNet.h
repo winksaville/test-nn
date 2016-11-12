@@ -35,6 +35,11 @@ typedef int Status;
 typedef struct Neuron Neuron;
 typedef struct NeuronLayer NeuronLayer;
 
+typedef struct Pattern {
+  int count;
+  double data[];
+} Pattern;
+
 typedef struct Neuron {
   NeuronLayer* inputs;  // Neuron layer of inputs
   double* weights;      // Array of weights for each input plus the bias
@@ -53,10 +58,13 @@ typedef struct NeuralNet {
   int last_hidden;      // layers[last_hidden] is last hidden layer
   int out_layer;        // layers[out_layer] is output layer
 
+  Pattern* input;       // Input pattern
+
   // There will always be at least two layers,
   // plus there are zero or more hidden layers.
   NeuronLayer* layers;
 } NeuralNet;
+
 
 Status NeuralNet_init(NeuralNet* nn, int num_in, int num_hidden, int num_out);
 void NeuralNet_deinit(NeuralNet* nn);
@@ -65,5 +73,16 @@ Status NeuralNet_start(NeuralNet* nn);
 void NeuralNet_stop(NeuralNet* nn);
 
 Status NeuralNet_add_hidden(NeuralNet* nn, int count);
+
+void NeuralNet_inputs_(NeuralNet* nn, Pattern* input);
+#define NeuralNet_inputs(nn, i) NeuralNet_inputs_(nn, (Pattern*)i)
+
+void NeuralNet_outputs_(NeuralNet* nn, Pattern* output);
+#define NeuralNet_outputs(nn, o) NeuralNet_outputs_(nn, (Pattern*)o)
+
+void NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target);
+#define NeuralNet_adjust(nn, o, t) NeuralNet_adjust_(nn, (Pattern*)o, (Pattern*)t)
+
+void NeuralNet_process(NeuralNet* nn);
 
 #endif
