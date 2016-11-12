@@ -21,7 +21,7 @@ typedef int Status;
 #define STATUS_OK  0 //< OK
 #define STATUS_ERR 1 //< Error
 #define STATUS_OOM 2 //< Out of memory
-#define STATUS_TO_MANY_HIDDEN 2 //< To many calls to NeuralNet_add_hidden
+#define STATUS_TO_MANY_HIDDEN 3 //< To many calls to NeuralNet_add_hidden
 
 /** Evaluates to true if status is good */
 #define StatusOk(s) ((s) == STATUS_OK)
@@ -32,36 +32,38 @@ typedef int Status;
 /** Evaluates to the status integer value */
 #define StatusVal(s) (s)
 
-typedef struct {
-  double* weights;
-  int conn_num_in;
-  int conn_num_out;
-  double* conn_in;
-  double* conn_out;
+typedef struct Neuron Neuron;
+typedef struct NeuronLayer NeuronLayer;
+
+typedef struct Neuron {
+  NeuronLayer* inputs;  // Neuron layer of inputs
+  double* weights;      // Array of weights for each input plus the bias
+  double output;        // The output of this neuron
 } Neuron;
 
-typedef struct {
-  int num_in;
-  int num_hidden;
-  int added_hidden;
-  int num_out;
+typedef struct NeuronLayer {
+  int count;            // Number of neurons
+  Neuron* neurons;      // The neurons
+} NeuronLayer;
 
-  Neuron* neurons_in;
-  Neuron** neurons_hidden;
-  Neuron* neurons_out;
+typedef struct NeuralNet {
+  int max_layers;       // Maximum layers in the nn
+                        // layers[0] input layer
+                        // layers[1] first hidden layer
+  int last_hidden;      // layers[last_hidden] is last hidden layer
+  int out_layer;        // layers[out_layer] is output layer
+
+  // There will always be at least two layers,
+  // plus there are zero or more hidden layers.
+  NeuronLayer* layers;
 } NeuralNet;
-
-Status Neuron_init(Neuron* n, int num_in, int num_out);
-Status Neuron_init_conn_in(Neuron* n, int num_in, Neuron* neurons);
-Status Neuron_init_conn_out(Neuron* n, int num_out, Neuron* neurons);
 
 Status NeuralNet_init(NeuralNet* nn, int num_in, int num_hidden, int num_out);
 void NeuralNet_deinit(NeuralNet* nn);
 
-/**
- * Add a hidden layer. This is expected to be called
- * num_hidden times as passed to NeuralNet_init.
- */
+Status NeuralNet_start(NeuralNet* nn);
+void NeuralNet_stop(NeuralNet* nn);
+
 Status NeuralNet_add_hidden(NeuralNet* nn, int count);
 
 #endif

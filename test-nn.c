@@ -15,18 +15,38 @@
  */
 #include "NeuralNet.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 
 NeuralNet nn;
 
 int main(int argc, char** argv) {
   Status status;
+  struct timespec spec;
+
   printf("test-nn:+\n");
+
+  // seed the random number generator
+#if 0
+  clock_gettime(CLOCK_REALTIME, &spec);
+  double dnow_us = (((double)spec.tv_sec * 1.0e9) + spec.tv_nsec) / 1.0e3;
+  int now = (int)(long)dnow_us;
+  printf("dnow_us=%lf now=0x%x\n", dnow_us, now);
+  srand(now);
+#else
+  srand(0x12345678);
+#endif
 
   status = NeuralNet_init(&nn, 2, 1, 2);
   if (StatusErr(status)) goto done;
 
   status = NeuralNet_add_hidden(&nn, 4);
   if (StatusErr(status)) goto done;
+
+  status = NeuralNet_start(&nn);
+  if (StatusErr(status)) goto done;
+
+  NeuralNet_stop(&nn);
 
 done:
   NeuralNet_deinit(&nn);
