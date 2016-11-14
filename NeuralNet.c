@@ -16,10 +16,11 @@
 
 #include "NeuralNet.h"
 
-#include <stdlib.h>
-#include <stdio.h>
 #include <malloc.h>
 #include <math.h>
+#include <assert.h>
+#include <stdlib.h>
+#include <stdio.h>
 
 /**
  * @return a double, N, such that 0.0 >= N < 1.0
@@ -46,20 +47,26 @@ done:
 
 static Status Neuron_init(Neuron* n, NeuronLayer* inputs) {
   Status status;
-  printf("Neuron_init:+%p num_in=%d inputs=%p\n",
-      n, inputs->count, inputs);
+  double* weights;
+  printf("Neuron_init:+%p inputs=%p\n", n, inputs);
 
-  // Add one to the inputs which is used for the bias
-  int count = inputs->count + 1;
-  n->weights = calloc(count, sizeof(double));
-  if (n->weights == NULL) { status = STATUS_OOM; goto done; }
+  if (inputs == NULL) {
+    weights = NULL;
+  } else {
+    // Calculate the initial weights. Note weights[0] is the bias
+    // so we increase count of weights by one.
+    int count = inputs->count + 1;
+    weights = calloc(count, sizeof(double));
+    if (weights == NULL) { status = STATUS_OOM; goto done; }
 
-  for (int w = 0; w < count; w++) {
-    n->weights[w] = rand0_1() - 0.5;
-    printf("Neuron_init: %p weights[%d]=%lf\n", n, w, n->weights[w]);
+    for (int w = 0; w < count; w++) {
+      weights[w] = rand0_1() - 0.5;
+      printf("Neuron_init: %p weights[%d]=%lf\n", n, w, weights[w]);
+    }
   }
 
   n->output = 0.0;
+  n->weights = weights;
   n->inputs = inputs;
   status = STATUS_OK;
 
@@ -161,9 +168,9 @@ Status NeuralNet_start(NeuralNet* nn) {
   // Initialize the neurons for all of the layers
   for (int l = 0; l < nn->max_layers; l++) {
     NeuronLayer* in_layer;
-    NeuronLayer* out_layer;
     if (l == 0) {
-      in_layer = &nn->layers[l];
+      // Layer 0 is the input layer so it has no inputs
+      in_layer == NULL;
     } else {
       in_layer = &nn->layers[l-1];
     }
@@ -206,16 +213,14 @@ void NeuralNet_process(NeuralNet* nn) {
       // Get the next neuron
       Neuron* neuron = &layer->neurons[n];
 
-      // Point at the first of the neuron's inputs
+      // Point at the first of the neuron's inputs and weights arrays
       Neuron* inputs = neuron->inputs->neurons;
-
-      // Point at the neuron's weights array
       double* weights = neuron->weights;
 
       // Initialize the weighted_sum to the first weight, this is the bias
       double weighted_sum = *weights++;
 
-      // Loop thought all of the neuron's inputs summing it against that inputs weight
+      // Loop thought all of the neuron's inputs summing it scaled by that inputs weight
       for (int i = 0; i < neuron->inputs->count; i++) {
         weighted_sum += weights[i] * inputs[i].output;
       }
@@ -246,5 +251,27 @@ void NeuralNet_outputs_(NeuralNet* nn, Pattern* output) {
 
 void NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target) {
   printf("NeuralNet_adjust_:+%p output count=%d target count=%d\n", nn, output->count, target->count);
+
+  // Calculate the error as the 0.5 the sum of the square of the target - output.
+  // Or stated another way the Sum Squared Error (SSE).
+  double error = 0.0;
+  assert(output->count == target->count);
+  for (int i = 0; i < output->count; i++) {
+    printf("NeuralNet_adjust_:-%p %d target=%lf output=%lf\n",
+        nn, i, target->data[i], output->data[i]);
+    double diff = target->data[i] - output->data[i];
+    double sse = 0.5 * diff * diff;
+    printf("NeuralNet_adjust_:-%p %d diff=%lf  sse=%lf\n",
+        nn, i, diff, sse);
+    error += sse;
+  }
+  printf("NeuralNet_adjust_:-%p error=%lf\n", nn, error);
+#if 0
+  NeuronLayer* layer = &nn->layers[nn->out_layer];
+  for (int i = 0; i < layer->count; i++) {
+    Neuron* neuron = layer->neurons;
+    error += 0.5 * ((target[i] - output[i]) * (target[i] - output[i]);
+  }
+#endif
   printf("NeuralNet_adjust_:-%p\n", nn);
 }
