@@ -80,7 +80,7 @@ void NeuralNet_inputs_(NeuralNet* nn, Pattern* input);
 void NeuralNet_outputs_(NeuralNet* nn, Pattern* output);
 #define NeuralNet_outputs(nn, o) NeuralNet_outputs_(nn, (Pattern*)o)
 
-void NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target);
+double NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target);
 #define NeuralNet_adjust(nn, o, t) NeuralNet_adjust_(nn, (Pattern*)o, (Pattern*)t)
 
 void NeuralNet_process(NeuralNet* nn);

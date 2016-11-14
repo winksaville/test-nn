@@ -249,7 +249,7 @@ void NeuralNet_outputs_(NeuralNet* nn, Pattern* output) {
   printf("NeuralNet_outputs_:-%p\n", nn);
 }
 
-void NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target) {
+double NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target) {
   printf("NeuralNet_adjust_:+%p output count=%d target count=%d\n", nn, output->count, target->count);
 
   // Calculate the error as the 0.5 the sum of the square of the target - output.
@@ -273,5 +273,6 @@ void NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target) {
     error += 0.5 * ((target[i] - output[i]) * (target[i] - output[i]);
   }
 #endif
-  printf("NeuralNet_adjust_:-%p\n", nn);
+  printf("NeuralNet_adjust_:-%p error=%lf\n", nn, error);
+  return error;
 }

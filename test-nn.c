@@ -75,13 +75,15 @@ int main(int argc, char** argv) {
 
   OutputPattern xor_output;
 
+  double total_error = 0.0;
   for (int p = 0; p < sizeof(xor_input_patterns)/sizeof(InputPattern); p++) {
     NeuralNet_inputs(&nn, &xor_input_patterns[p]);
     NeuralNet_process(&nn);
     xor_output.count = OUTPUT_COUNT;
     NeuralNet_outputs(&nn, &xor_output);
-    NeuralNet_adjust(&nn, &xor_output, &xor_target_patterns[p]);
+    total_error += NeuralNet_adjust(&nn, &xor_output, &xor_target_patterns[p]);
   }
+  printf("test-nn: total_error=%lf\n", total_error);
 
   NeuralNet_stop(&nn);
 
