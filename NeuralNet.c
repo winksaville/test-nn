@@ -65,9 +65,10 @@ static Status Neuron_init(Neuron* n, NeuronLayer* inputs) {
     }
   }
 
-  n->output = 0.0;
-  n->weights = weights;
   n->inputs = inputs;
+  n->weights = weights;
+  n->output = 0.0;
+  n->pd_error = 0.0;
   status = STATUS_OK;
 
 done:
@@ -82,10 +83,12 @@ Status NeuralNet_init(NeuralNet* nn, int num_in_neurons, int num_hidden_layers,
   printf("NeuralNet_init:+%p num_in_neurons=%d num_hidden_layers=%d num_out_neurons=%d\n",
       nn, num_in_neurons, num_hidden_layers, num_out_neurons);
 
-  nn->max_layers = num_hidden_layers + 2;
-  nn->out_layer = nn->max_layers - 1;
-  nn->last_hidden = 0;
-  nn->layers = NULL;
+  nn->max_layers = 2; // We always have an input and output layer
+  nn->max_layers += num_hidden_layers; // Add num_hidden layers
+  nn->out_layer = nn->max_layers - 1;  // last one is out_layer
+  nn->last_hidden = 0; // No hidden layers yet
+  nn->error = 0;       // No errors yet
+  nn->layers = NULL;   // No layers yet
 
   // Create the layers
   nn->layers = calloc(nn->max_layers, sizeof(NeuronLayer));
@@ -94,10 +97,8 @@ Status NeuralNet_init(NeuralNet* nn, int num_in_neurons, int num_hidden_layers,
   // Initalize input and output layers
   status = NeuralNet_create_layer(&nn->layers[0], num_in_neurons);
   if (StatusErr(status)) goto done;
-  status = NeuralNet_create_layer(&nn->layers[nn->out_layer], num_in_neurons);
+  status = NeuralNet_create_layer(&nn->layers[nn->out_layer], num_out_neurons);
   if (StatusErr(status)) goto done;
-
-  nn->layers[nn->max_layers-1].count = num_out_neurons;
 
   status = STATUS_OK;
 
@@ -152,10 +153,10 @@ done:
 Status NeuralNet_start(NeuralNet* nn) {
   Status status;
 
-  // Update out_layer if necessary
+  // Check if the user added all of the hidden layers they could
   if ((nn->last_hidden + 1) < (nn->max_layers - 1)) {
-    // There were fewer hidden layers than expected so
-    // move the output layer to be after the last hidden layer
+    // Nope, there were fewer hidden layers than there could be
+    // so move the output layer to be after the last hidden layer
     nn->out_layer = nn->last_hidden + 1;
     nn->layers[nn->out_layer].count = nn->layers[nn->max_layers - 1].count;
     nn->layers[nn->out_layer].neurons = nn->layers[nn->max_layers - 1].neurons;
@@ -259,55 +260,53 @@ double NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target) {
   nn->error = 0.0;
   assert(output->count == target->count);
   NeuronLayer* output_layer = &nn->layers[nn->out_layer];
-  for (int i = 0; i < output->count; i++) {
-    printf("NeuralNet_adjust_:-%p %d target=%lf output=%lf\n",
-        nn, i, target->data[i], output->data[i]);
-
+  for (int n = 0; n < output->count; n++) {
     // Compute the error as the difference between target and output
-    double error = target->data[i] - output->data[i];
+    double err = target->data[n] - output->data[n];
 
     // Compute the partial derivative of the activation w.r.t. error
-    double pd_error = error * output->data[i] * (1.0 - output->data[i]);
-    nn->layers[nn->out_layer].neurons[i].pd_error = pd_error;
+    double pd_err = err * output->data[n] * (1.0 - output->data[n]);
+    nn->layers[nn->out_layer].neurons[n].pd_error = pd_err;
 
     // Compute the sub of the square of the error and add to total_error
-    double sse = 0.5 * error * error;
+    double sse = 0.5 * err * err;
     nn->error += sse;
-    printf("NeuralNet_adjust_:-%p %d diff_err=%lf  pd_error=%lf sse=%lf\n",
-        nn, i, error, pd_error, sse);
+    printf("NeuralNet_adjust_: %p out_layer=%d:%d target=%lf output=%lf err=%lf pd_err=%lf sse=%lf\n",
+        nn, nn->out_layer, n, target->data[n], output->data[n], err, pd_err, sse);
   }
   printf("NeuralNet_adjust_: %p nn->error=%lf\n", nn, nn->error);
 
   // For all of layers starting at the output layer back propagate the pd_error
   // to the previous layers. The output layers pd_error has been calculated above
   int first_hidden_layer = 1;
-  for (int l = nn->out_layer; l >= first_hidden_layer; l--) {
+  for (int l = nn->out_layer; l > first_hidden_layer; l--) {
     NeuronLayer* cur_layer = &nn->layers[l];
     NeuronLayer* prev_layer = &nn->layers[l-1];
-    printf("NeuralNet_adjust_: %p l=%d l-1=%d cur_layer=%p prev_layer=%p\n",
-        nn, l, l-1, cur_layer, prev_layer);
+    printf("NeuralNet_adjust_: %p cur_layer=%d prev_layer=%d\n", nn, l, l-1);
 
     // Compute the partial derivative of the error for the previous layer
-    for (int n = 0; n < prev_layer->count; n++) {
-      double sum_weighted_pd_error = 0.0;
-      for (int i = 0; i < cur_layer->count; i++) {
-        double pd_error = cur_layer->neurons[i].pd_error;
-        printf("NeuralNet_adjust_: %p cur_layer->neurons[%d]=%lf\n", nn, i, pd_error);
-        double weight = cur_layer->neurons[i].weights[n];
-        printf("NeuralNet_adjust_: %p cur_layer->neurons[%d].weights[%d]=%lf\n",
-            nn, i, n, weight);
-        sum_weighted_pd_error += pd_error * weight;
-        printf("NeuralNet_adjust_: %p sum_weighted_pd_error=%lf\n", nn,
-            sum_weighted_pd_error);
+    // TODO: What about the pd_err for the bias weight????
+    for (int npl = 0; npl < prev_layer->count; npl++) {
+      double sum_weighted_pd_err = 0.0;
+      for (int ncl = 0; ncl < cur_layer->count; ncl++) {
+        double pd_err = cur_layer->neurons[ncl].pd_error;
+        printf("NeuralNet_adjust_: %p cur_layer:%d:%d pd_err=%lf\n",
+            nn, l, ncl, pd_err);
+        double weight = cur_layer->neurons[ncl].weights[npl+1];
+        printf("NeuralNet_adjust_: %p cur_layer:%d:%d weights[%d]=%lf\n",
+            nn, l, ncl, npl+1, weight);
+        sum_weighted_pd_err += pd_err * weight;
+        printf("NeuralNet_adjust_: %p cur_layer:%d:%d sum_weighted_pd_err:%lf\n",
+            nn, l, ncl, sum_weighted_pd_err);
       }
 
-      double prev_out = prev_layer->neurons[n].output;
+      double prev_out = prev_layer->neurons[npl].output;
       double pd_prev_out = prev_out * (1.0 - prev_out);
-      printf("NeuralNet_adjust_: %p pd_prev_out:%lf = prev_out:%lf * (1.0 - prev_out:%lf)\n",
-        nn, pd_prev_out, prev_out, prev_out);
-      prev_layer->neurons[n].pd_error = sum_weighted_pd_error * pd_prev_out;
-      printf("NeuralNet_adjust_: %p pd_error:%lf = sum_weighted_pd_error:%lf * pd_prev_out:%lf\n",
-        nn, sum_weighted_pd_error, pd_prev_out);
+      printf("NeuralNet_adjust_: %p prev_layer:%d:%d pd_prev_out:%lf = prev_out:%lf * (1.0 - prev_out:%lf)\n",
+        nn, l-1, npl, pd_prev_out, prev_out, prev_out);
+      prev_layer->neurons[npl].pd_error = sum_weighted_pd_err * pd_prev_out;
+      printf("NeuralNet_adjust_: %p prev_layer:%d:%d pd_error:%lf = sum_weighted_pd_err:%lf * pd_prev_out:%lf\n",
+        nn, l-1, npl, prev_layer->neurons[npl].pd_error, sum_weighted_pd_err, pd_prev_out);
     }
   }
 

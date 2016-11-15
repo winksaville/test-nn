@@ -45,7 +45,6 @@ typedef struct Neuron {
   double* weights;      // Array of weights for each input plus the bias
   double output;        // The output of this neuron
   double pd_error;      // Partial derative of this neurons error
-  double delta;         // Delta for weight when training
 } Neuron;
 
 typedef struct NeuronLayer {
@@ -57,8 +56,8 @@ typedef struct NeuralNet {
   int max_layers;       // Maximum layers in the nn
                         // layers[0] input layer
                         // layers[1] first hidden layer
-  int last_hidden;      // layers[last_hidden] is last hidden layer
   int out_layer;        // layers[out_layer] is output layer
+  int last_hidden;      // layers[last_hidden] is last hidden layer
   double error;         // The overall network error
 
   Pattern* input;       // Input pattern
