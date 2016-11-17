@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 #include "NeuralNet.h"
+#include "dbg.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -52,14 +54,14 @@ int main(int argc, char** argv) {
   Status status;
   struct timespec spec;
 
-  printf("test-nn:+\n");
+  dbg("test-nn:+\n");
 
   // seed the random number generator
 #if 0
   clock_gettime(CLOCK_REALTIME, &spec);
   double dnow_us = (((double)spec.tv_sec * 1.0e9) + spec.tv_nsec) / 1.0e3;
   int now = (int)(long)dnow_us;
-  printf("dnow_us=%lf now=0x%x\n", dnow_us, now);
+  dbg("dnow_us=%lf now=0x%x\n", dnow_us, now);
   srand(now);
 #else
   srand(1);
@@ -85,11 +87,11 @@ int main(int argc, char** argv) {
     NeuralNet_outputs(&nn, &xor_output[p]);
     total_error += NeuralNet_adjust(&nn, &xor_output[p], &xor_target_patterns[p]);
   }
-  printf("test-nn: total_error=%lf\n", total_error);
+  printf("Total Error=%lf\n", total_error);
 
   NeuralNet_stop(&nn);
 
-  printf("Pat");
+  printf("\nPat");
   for (int i = 0; i < xor_input_patterns[0].count; i++) {
     printf("\tInput%-4d", i);
   }
@@ -118,6 +120,6 @@ int main(int argc, char** argv) {
 done:
   NeuralNet_deinit(&nn);
 
-  printf("test-nn:- status=%d\n", status);
+  dbg("test-nn:- status=%d\n", status);
   return 0;
 }
