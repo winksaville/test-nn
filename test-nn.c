@@ -13,14 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#if !defined(DBG)
+#define DBG 0
+#endif
+
 #include "NeuralNet.h"
 #include "dbg.h"
+#include "rand0_1.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 
-NeuralNet nn;
+#if !defined(EPOCH_COUNT) && (DBG == 1)
+#define EPOCH_COUNT 1
+#endif
+
+#if !defined(EPOCH_COUNT) && (DBG == 0)
+#define EPOCH_COUNT 100000
+#endif
 
 #define INPUT_COUNT 2
 typedef struct InputPattern {
@@ -35,18 +46,20 @@ typedef struct OutputPattern {
 } OutputPattern;
 
 InputPattern xor_input_patterns[] = {
-  { .count = 2, .data[0] = 0, .data[1] = 0 },
-  { .count = 2, .data[0] = 1, .data[1] = 0 },
-  { .count = 2, .data[0] = 0, .data[1] = 1 },
-  { .count = 2, .data[0] = 1, .data[1] = 1 },
+  { .count = INPUT_COUNT, .data[0] = 0, .data[1] = 0 },
+  { .count = INPUT_COUNT, .data[0] = 1, .data[1] = 0 },
+  { .count = INPUT_COUNT, .data[0] = 0, .data[1] = 1 },
+  { .count = INPUT_COUNT, .data[0] = 1, .data[1] = 1 },
 };
 
 OutputPattern xor_target_patterns[] = {
-  { .count = 1, .data[0] = 0 },
-  { .count = 1, .data[0] = 1 },
-  { .count = 1, .data[0] = 1 },
-  { .count = 1, .data[0] = 0 },
+  { .count = OUTPUT_COUNT, .data[0] = 0 },
+  { .count = OUTPUT_COUNT, .data[0] = 1 },
+  { .count = OUTPUT_COUNT, .data[0] = 1 },
+  { .count = OUTPUT_COUNT, .data[0] = 0 },
 };
+
+NeuralNet nn;
 
 OutputPattern xor_output[sizeof(xor_target_patterns)/sizeof(OutputPattern)];
 
@@ -76,18 +89,50 @@ int main(int argc, char** argv) {
   status = NeuralNet_start(&nn);
   if (StatusErr(status)) goto done;
 
+  double error;
+  double error_threshold = 0.0004;
+  int pattern_count = sizeof(xor_input_patterns)/sizeof(InputPattern);
+  int* rand_ps = calloc(pattern_count, sizeof(int));
 
-  double total_error = 0.0;
-  //int patterns = 1;
-  int patterns = sizeof(xor_input_patterns)/sizeof(InputPattern);
-  for (int p = 0; p < patterns; p++) {
-    NeuralNet_inputs(&nn, &xor_input_patterns[p]);
-    NeuralNet_process(&nn);
-    xor_output[p].count = OUTPUT_COUNT;
-    NeuralNet_outputs(&nn, &xor_output[p]);
-    total_error += NeuralNet_adjust(&nn, &xor_output[p], &xor_target_patterns[p]);
+
+  int epoch_count = EPOCH_COUNT;
+  int epoch;
+  for (epoch = 0; epoch < epoch_count; epoch++) {
+    error = 0.0;
+
+    // Re-order rand_patterns
+    for (int p = 0; p < pattern_count; p++) {
+      rand_ps[p] = p;
+    }
+
+    // Shuffle rand_patterns by swapping the current
+    // position t with a random location after the
+    // current position.
+    for (int p = 0; p < pattern_count; p++) {
+      double r0_1 = rand0_1();
+      int rp = p + (int)(r0_1 * (pattern_count - p));
+      int t = rand_ps[p];
+      rand_ps[p] = rand_ps[rp];
+      rand_ps[rp] = t;
+      dbg("r0_1=%lf rp=%d rand_ps[%d]=%d\n", r0_1, rp, p, rand_ps[p]);
+    }
+
+    for (int rp = 0; rp < pattern_count; rp++) {
+      int p = rand_ps[rp];
+      NeuralNet_inputs(&nn, &xor_input_patterns[p]);
+      NeuralNet_process(&nn);
+      xor_output[p].count = OUTPUT_COUNT;
+      NeuralNet_outputs(&nn, &xor_output[p]);
+      error += NeuralNet_adjust(&nn, &xor_output[p], &xor_target_patterns[p]);
+    }
+    if ((epoch % 100) == 0) {
+      printf("\nEpoch=%-6d : error=%lf", epoch, error);
+    }
+    if (error < error_threshold) {
+      break;
+    }
   }
-  printf("Total Error=%lf\n", total_error);
+  printf("\n\nEpoch=%d Error=%lf\n", epoch, error);
 
   NeuralNet_stop(&nn);
 
@@ -102,7 +147,7 @@ int main(int argc, char** argv) {
     printf("\tOutput%-4d", o);
   }
   printf("\n");
-  for (int p = 0; p < patterns; p++) {
+  for (int p = 0; p < pattern_count; p++) {
     printf("%d", p);
     for (int i = 0; i < xor_input_patterns[p].count; i++) {
       printf("\t%lf", xor_input_patterns[p].data[i]);

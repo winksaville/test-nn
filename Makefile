@@ -1,5 +1,21 @@
+# Makefile for test-nn
+# Parameters:
+#   DBG=0 or 1 (default = 0)
+
+# _DBG will be 0 if DBG isn't defined on the command line
+_DBG = +$(DBG)
+ifeq ($(_DBG), +)
+  _DBG = 0
+endif
+
+# Make sure _EPOCH_COUNT is at least 1
+_EPOCH_COUNT = +$(EPOCH_COUNT)
+ifeq ($(_EPOCH_COUNT), +)
+  _EPOCH_COUNT = 1
+endif
+
 CC=gcc
-CFLAGS=-O0 -g
+CFLAGS=-O0 -g -DDBG=$(_DBG) -DEPOCH_COUNT=$(_EPOCH_COUNT)
 
 LNK=$(CC)
 LNKFLAGS=-lm

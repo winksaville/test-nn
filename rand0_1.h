@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-#ifndef DBG_H
-#define DBG_H
+#ifndef RAND0_1_H
+#define RAND0_1_H
 
-#if DBG == 0
-  #define dbg(...) ((void*)0)
-#else
-  #define dbg(...) printf(__VA_ARGS__)
+/**
+ * @return a double, N, such that 0.0 >= N < 1.0
+ */
+#define rand0_1() ((double)rand()/((double)RAND_MAX+1))
+
 #endif
-
-#endif
-

@@ -16,17 +16,13 @@
 
 #include "NeuralNet.h"
 #include "dbg.h"
+#include "rand0_1.h"
 
 #include <malloc.h>
 #include <math.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
-
-/**
- * @return a double, N, such that 0.0 >= N < 1.0
- */
-#define rand0_1() ((double)rand()/((double)RAND_MAX+1))
 
 static Status NeuralNet_create_layer(NeuronLayer* l, int count) {
   Status status;
