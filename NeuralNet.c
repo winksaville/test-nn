@@ -48,6 +48,7 @@ done:
 static Status Neuron_init(Neuron* n, NeuronLayer* inputs) {
   Status status;
   double* weights;
+  double* momentums;
   printf("Neuron_init:+%p inputs=%p\n", n, inputs);
 
   if (inputs == NULL) {
@@ -59,14 +60,20 @@ static Status Neuron_init(Neuron* n, NeuronLayer* inputs) {
     weights = calloc(count, sizeof(double));
     if (weights == NULL) { status = STATUS_OOM; goto done; }
 
+    // Initialize weights >= -0.5 and < 0.5
     for (int w = 0; w < count; w++) {
       weights[w] = rand0_1() - 0.5;
       printf("Neuron_init: %p weights[%d]=%lf\n", n, w, weights[w]);
     }
+
+    // Allocate an array of mementums initialize to 0.0
+    momentums = calloc(count, sizeof(double));
+    if (momentums == NULL) { status = STATUS_OOM; goto done; }
   }
 
   n->inputs = inputs;
   n->weights = weights;
+  n->momentums = momentums;
   n->output = 0.0;
   n->pd_error = 0.0;
   status = STATUS_OK;
@@ -88,6 +95,8 @@ Status NeuralNet_init(NeuralNet* nn, int num_in_neurons, int num_hidden_layers,
   nn->out_layer = nn->max_layers - 1;  // last one is out_layer
   nn->last_hidden = 0; // No hidden layers yet
   nn->error = 0;       // No errors yet
+  nn->learning_rate = 0.5; // Learning rate aka eta
+  nn->momentum_factor = 0.9; // momemtum factor aka alpha
   nn->layers = NULL;   // No layers yet
 
   // Create the layers
@@ -221,7 +230,10 @@ void NeuralNet_process(NeuralNet* nn) {
       double* weights = neuron->weights;
 
       // Initialize the weighted_sum to the first weight, this is the bias
-      double weighted_sum = *weights++;
+      double weighted_sum = *weights;
+
+      // Skip past bias
+      weights += 1;
 
       // Loop thought all of the neuron's inputs summing it scaled by that inputs weight
       for (int i = 0; i < neuron->inputs->count; i++) {
@@ -229,7 +241,7 @@ void NeuralNet_process(NeuralNet* nn) {
       }
 
       // Calcuate the output using a Sigmoidal Activation function
-      neuron->output = 1.0/(1.0 + exp(-weighted_sum));
+      neuron->output = 1.0 / (1.0 + exp(-weighted_sum));
       printf("NeuralNet_process_: %p output=%lf weighted_sum=%lf\n",
           neuron, neuron->output, weighted_sum);
     }
@@ -257,6 +269,7 @@ double NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target) {
       nn, output->count, target->count);
 
   // Calculate the network error and partial derivative of the error for the output layer
+  printf("\nNeuralNet_adjust_: %p calculate pd_error for output neurons and total_error\n", nn);
   nn->error = 0.0;
   assert(output->count == target->count);
   NeuronLayer* output_layer = &nn->layers[nn->out_layer];
@@ -278,6 +291,7 @@ double NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target) {
 
   // For all of layers starting at the output layer back propagate the pd_error
   // to the previous layers. The output layers pd_error has been calculated above
+  printf("\nNeuralNet_adjust_: %p backpropagate pd_error for the hidden layers\n", nn);
   int first_hidden_layer = 1;
   for (int l = nn->out_layer; l > first_hidden_layer; l--) {
     NeuronLayer* cur_layer = &nn->layers[l];
@@ -285,7 +299,6 @@ double NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target) {
     printf("NeuralNet_adjust_: %p cur_layer=%d prev_layer=%d\n", nn, l, l-1);
 
     // Compute the partial derivative of the error for the previous layer
-    // TODO: What about the pd_err for the bias weight????
     for (int npl = 0; npl < prev_layer->count; npl++) {
       double sum_weighted_pd_err = 0.0;
       for (int ncl = 0; ncl < cur_layer->count; ncl++) {
@@ -310,19 +323,54 @@ double NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target) {
     }
   }
 
-#if 0
-  // Update the weights for hidden and output
-  for (int l = 1; l <= nn->out_layer; l--) {
+  // Update the weights for hidden layers and output layer
+  printf("\nNeuralNet_adjust_: %p update weights learning_rate=%lf momemutum_factor=%lf\n", nn, nn->learning_rate, nn->momentum_factor);
+  for (int l = 1; l <= nn->out_layer; l++) {
     NeuronLayer* layer = &nn->layers[l];
+    printf("NeuralNet_adjust_: %p loop through layer %d\n", nn, l);
     for (int n = 0; n < layer->count; n++) {
       Neuron* neuron = &layer->neurons[n];
       NeuronLayer* inputs = neuron->inputs;
+
+      // Point weights and mementums input entires at index 1,
+      // the bias entries will be at index -1
+      double* weights = &neuron->weights[1];
+      double* momentums = &neuron->momentums[1];
+
+      // Start with bias
+      double pd_err = neuron->pd_error; 
+
+      // Update the weights for bias
+      double momentum = nn->momentum_factor * momentums[-1];
+      printf("momentum:%lf = nn->momentum_factor:%lf momentums[%d]:%lf\n",
+          momentum, nn->momentum_factor, -1, momentums[-1]);
+      momentums[-1] = (nn->learning_rate * pd_err) + momentum;
+      printf("NeuralNet_adjust_: %p %d:%d momentums[%d]:%lf = (eta:%lf * pd_err:%lf) + momentum:%lf bias\n",
+          nn, l, n, -1, momentums[-1], nn->learning_rate, pd_err, momentum);
+
+      double w = weights[-1];
+      weights[-1] = weights[-1] + momentums[-1];
+      printf("NeuralNet_adjust_: %p %d:%d weights[%d]:%lf = weights[%d]:%lf momentums[%d]=%lf bias\n",
+          nn, l, n, -1, weights[-1], -1, w, -1, momentums[-1]);
+
+
+      // Loop through this neurons input neurons adjusting the weights and momentums
+      printf("NeuralNet_adjust_: %p loop through neurons for %d:%d update weights pd_err=%lf\n", nn, l, n, pd_err);
       for (int i = 0; i < neuron->inputs->count; i++) {
         // Update the weights
+        double input = inputs->neurons[i].output;
+        momentum = nn->momentum_factor * momentums[i];
+        momentums[i]  = (nn->learning_rate * input * pd_err) + momentum;
+        printf("NeuralNet_adjust_: %p %d:%d momentums[%d]:%lf = (eta:%lf * input:%lf pd_err:%lf) + momentum:%lf\n",
+            nn, l, n, i, momentums[i], nn->learning_rate, input, pd_err, momentum);
+
+        w = weights[i];
+        weights[i] = weights[i] + momentums[i];
+        printf("NeuralNet_adjust_: %p %d:%d weights[%d]:%lf = weights[%d]:%lf + momentums[%d]=%lf\n",
+            nn, l, n, i, weights[i], i, w, i, momentums[i]);
       }
     }
   }
-#endif
 
   printf("NeuralNet_adjust_:-%p nn->error=%lf\n", nn, nn->error);
   return nn->error;

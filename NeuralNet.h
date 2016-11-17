@@ -43,6 +43,7 @@ typedef struct Pattern {
 typedef struct Neuron {
   NeuronLayer* inputs;  // Neuron layer of inputs
   double* weights;      // Array of weights for each input plus the bias
+  double* momentums;    // Array of momentums for each input plus the bias
   double output;        // The output of this neuron
   double pd_error;      // Partial derative of this neurons error
 } Neuron;
@@ -53,14 +54,16 @@ typedef struct NeuronLayer {
 } NeuronLayer;
 
 typedef struct NeuralNet {
-  int max_layers;       // Maximum layers in the nn
-                        // layers[0] input layer
-                        // layers[1] first hidden layer
-  int out_layer;        // layers[out_layer] is output layer
-  int last_hidden;      // layers[last_hidden] is last hidden layer
-  double error;         // The overall network error
+  int max_layers;         // Maximum layers in the nn
+                          // layers[0] input layer
+                          // layers[1] first hidden layer
+  int out_layer;          // layers[out_layer] is output layer
+  int last_hidden;        // layers[last_hidden] is last hidden layer
+  double error;           // The overall network error
+  double learning_rate;   // Learning rate aka 'eta'
+  double momentum_factor; // Momentum factor aka 'aplha'
 
-  Pattern* input;       // Input pattern
+  Pattern* input;         // Input pattern
 
   // There will always be at least two layers,
   // plus there are zero or more hidden layers.

@@ -76,8 +76,8 @@ int main(int argc, char** argv) {
   OutputPattern xor_output;
 
   double total_error = 0.0;
-  int patterns = 1;
-  //int patterns = sizeof(xor_input_patterns)/sizeof(InputPattern);
+  //int patterns = 1;
+  int patterns = sizeof(xor_input_patterns)/sizeof(InputPattern);
   for (int p = 0; p < patterns ; p++) {
     NeuralNet_inputs(&nn, &xor_input_patterns[p]);
     NeuralNet_process(&nn);
