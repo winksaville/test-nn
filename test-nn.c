@@ -18,11 +18,14 @@
 #endif
 
 #include "NeuralNet.h"
+#include "NeuralNetIo.h"
 #include "dbg.h"
 #include "rand0_1.h"
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 
 #if !defined(EPOCH_COUNT) && (DBG == 1)
@@ -67,6 +70,8 @@ int main(int argc, char** argv) {
   Status status;
   struct timespec spec;
 
+  NeuralNetIoWriter writer;
+
   dbg("test-nn:+\n");
 
   // seed the random number generator
@@ -84,6 +89,9 @@ int main(int argc, char** argv) {
   if (StatusErr(status)) goto done;
 
   status = nn.add_hidden(&nn, 2);
+  if (StatusErr(status)) goto done;
+
+  status = NeuralNetIoWriter_init(&writer, NULL, &nn, "A", "outdata", "t", "txt");
   if (StatusErr(status)) goto done;
 
   status = nn.start(&nn);
@@ -162,7 +170,12 @@ int main(int argc, char** argv) {
 
   }
 
+  writer.begin_epoch(&writer, 0);
+  writer.write_str(&writer, "hello\n");
+  writer.end_epoch(&writer);
+
 done:
+  writer.deinit(&writer);
   nn.deinit(&nn);
 
   dbg("test-nn:- status=%d\n", status);

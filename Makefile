@@ -20,9 +20,12 @@ CFLAGS=-O0 -g -DDBG=$(_DBG) -DEPOCH_COUNT=$(_EPOCH_COUNT)
 LNK=$(CC)
 LNKFLAGS=-lm
 
-test-nn-obj-deps=NeuralNet.o test-nn.o
+test-nn-obj-deps=NeuralNet.o NeuralNetIo.o test-nn.o
 
 all: test-nn
+
+NeuralNetIo.o : NeuralNetIo.c NeuralNet.h NeuralNetIo.h Makefile
+	$(CC) $(CFLAGS) -c $< -o $@
 
 NeuralNet.o : NeuralNet.c NeuralNet.h Makefile
 	$(CC) $(CFLAGS) -c $< -o $@
