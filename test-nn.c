@@ -83,10 +83,10 @@ int main(int argc, char** argv) {
   status = NeuralNet_init(&nn, 2, 1, 1);
   if (StatusErr(status)) goto done;
 
-  status = NeuralNet_add_hidden(&nn, 2);
+  status = nn.add_hidden(&nn, 2);
   if (StatusErr(status)) goto done;
 
-  status = NeuralNet_start(&nn);
+  status = nn.start(&nn);
   if (StatusErr(status)) goto done;
 
   double error;
@@ -119,11 +119,11 @@ int main(int argc, char** argv) {
 
     for (int rp = 0; rp < pattern_count; rp++) {
       int p = rand_ps[rp];
-      NeuralNet_inputs(&nn, &xor_input_patterns[p]);
-      NeuralNet_process(&nn);
+      nn.inputs(&nn, (Pattern*)&xor_input_patterns[p]);
+      nn.process(&nn);
       xor_output[p].count = OUTPUT_COUNT;
-      NeuralNet_outputs(&nn, &xor_output[p]);
-      error += NeuralNet_adjust(&nn, &xor_output[p], &xor_target_patterns[p]);
+      nn.outputs(&nn, (Pattern*)&xor_output[p]);
+      error += nn.adjust(&nn, (Pattern*)&xor_output[p], (Pattern*)&xor_target_patterns[p]);
     }
     if ((epoch % 100) == 0) {
       printf("\nEpoch=%-6d : error=%lf", epoch, error);
@@ -134,7 +134,7 @@ int main(int argc, char** argv) {
   }
   printf("\n\nEpoch=%d Error=%lf\n", epoch, error);
 
-  NeuralNet_stop(&nn);
+  nn.stop(&nn);
 
   printf("\nPat");
   for (int i = 0; i < xor_input_patterns[0].count; i++) {
@@ -163,7 +163,7 @@ int main(int argc, char** argv) {
   }
 
 done:
-  NeuralNet_deinit(&nn);
+  nn.deinit(&nn);
 
   dbg("test-nn:- status=%d\n", status);
   return 0;

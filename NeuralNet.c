@@ -24,6 +24,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// Forward declarations
+static void NeuralNet_deinit(NeuralNet* nn);
+static Status NeuralNet_start(NeuralNet* nn);
+static void NeuralNet_stop(NeuralNet* nn);
+static Status NeuralNet_add_hidden(NeuralNet* nn, int count);
+static void NeuralNet_inputs(NeuralNet* nn, Pattern* input);
+static void NeuralNet_outputs(NeuralNet* nn, Pattern* output);
+static double NeuralNet_adjust(NeuralNet* nn, Pattern* output, Pattern* target);
+static void NeuralNet_process(NeuralNet* nn);
+
 static Status NeuralNet_create_layer(NeuronLayer* l, int count) {
   Status status;
 
@@ -106,6 +116,15 @@ Status NeuralNet_init(NeuralNet* nn, int num_in_neurons, int num_hidden_layers,
   status = NeuralNet_create_layer(&nn->layers[nn->out_layer], num_out_neurons);
   if (StatusErr(status)) goto done;
 
+  nn->deinit = NeuralNet_deinit;
+  nn->start = NeuralNet_start;
+  nn->stop = NeuralNet_stop;
+  nn->add_hidden = NeuralNet_add_hidden;
+  nn->inputs = NeuralNet_inputs;
+  nn->outputs = NeuralNet_outputs;
+  nn->adjust = NeuralNet_adjust;
+  nn->process = NeuralNet_process;
+
   status = STATUS_OK;
 
 done:
@@ -137,7 +156,7 @@ void NeuralNet_deinit(NeuralNet* nn) {
   dbg("NeuralNet_deinit:-%p\n", nn);
 }
 
-Status NeuralNet_add_hidden(NeuralNet* nn, int count) {
+static Status NeuralNet_add_hidden(NeuralNet* nn, int count) {
   Status status;
 
   dbg("NeuralNet_add_hidden:+%p count=%d\n", nn, count);
@@ -156,7 +175,7 @@ done:
   return status;
 }
 
-Status NeuralNet_start(NeuralNet* nn) {
+static Status NeuralNet_start(NeuralNet* nn) {
   Status status;
 
   // Check if the user added all of the hidden layers they could
@@ -195,12 +214,12 @@ done:
   return status;
 }
 
-void NeuralNet_stop(NeuralNet* nn) {
+static void NeuralNet_stop(NeuralNet* nn) {
   dbg("NeuralNet_stop:+%p\n", nn);
   dbg("NeuralNet_stop:-%p\n", nn);
 }
 
-void NeuralNet_inputs_(NeuralNet* nn, Pattern* input) {
+static void NeuralNet_inputs(NeuralNet* nn, Pattern* input) {
   dbg("NeuralNet_inputs_:+%p count=%d input_layer count=%d\n",
       nn, input->count, nn->layers[0].count);
   for (int n = 0; n < nn->layers[0].count; n++) {
@@ -212,7 +231,7 @@ void NeuralNet_inputs_(NeuralNet* nn, Pattern* input) {
   dbg("NeuralNet_inputs_:-%p\n", nn);
 }
 
-void NeuralNet_process(NeuralNet* nn) {
+static void NeuralNet_process(NeuralNet* nn) {
   dbg("NeuralNet_process_:+%p\n", nn);
   // Calcuate the output for the fully connected layers,
   // which start at nn->layers[1]
@@ -246,7 +265,7 @@ void NeuralNet_process(NeuralNet* nn) {
   dbg("NeuralNet_process_:-%p\n", nn);
 }
 
-void NeuralNet_outputs_(NeuralNet* nn, Pattern* output) {
+static void NeuralNet_outputs(NeuralNet* nn, Pattern* output) {
   int count;
   dbg("NeuralNet_outputs_:+%p count=%d\n", nn, output->count);
   if (output->count > nn->layers[nn->out_layer].count) {
@@ -261,7 +280,7 @@ void NeuralNet_outputs_(NeuralNet* nn, Pattern* output) {
   dbg("NeuralNet_outputs_:-%p\n", nn);
 }
 
-double NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target) {
+static double NeuralNet_adjust(NeuralNet* nn, Pattern* output, Pattern* target) {
   dbg("NeuralNet_adjust_:+%p output count=%d target count=%d\n",
       nn, output->count, target->count);
 

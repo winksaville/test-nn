@@ -32,8 +32,29 @@ typedef int Status;
 /** Evaluates to the status integer value */
 #define StatusVal(s) (s)
 
+// Forward declarations
+typedef struct Pattern Pattern;
 typedef struct Neuron Neuron;
 typedef struct NeuronLayer NeuronLayer;
+typedef struct NeuralNet NeuralNet;
+
+// NeuralNet methods
+typedef void (*NeuralNet_Deinit)(NeuralNet* nn);
+
+typedef Status (*NeuralNet_Start)(NeuralNet* nn);
+
+typedef void (*NeuralNet_Stop)(NeuralNet* nn);
+
+typedef Status (*NeuralNet_AddHidden)(NeuralNet* nn, int count);
+
+typedef void (*NeuralNet_Inputs)(NeuralNet* nn, Pattern* input);
+
+typedef void (*NeuralNet_Outputs)(NeuralNet* nn, Pattern* output);
+
+typedef double (*NeuralNet_Adjust)(NeuralNet* nn, Pattern* output, Pattern* target);
+
+typedef void (*NeuralNet_Process)(NeuralNet* nn);
+
 
 typedef struct Pattern {
   int count;
@@ -68,26 +89,20 @@ typedef struct NeuralNet {
   // There will always be at least two layers,
   // plus there are zero or more hidden layers.
   NeuronLayer* layers;
+
+  // Methods
+  NeuralNet_Deinit deinit;
+  NeuralNet_Start start;
+  NeuralNet_Stop stop;
+  NeuralNet_AddHidden add_hidden;
+  NeuralNet_Inputs inputs;
+  NeuralNet_Outputs outputs;
+  NeuralNet_Adjust adjust;
+  NeuralNet_Process process;
+
 } NeuralNet;
 
-
 Status NeuralNet_init(NeuralNet* nn, int num_in, int num_hidden, int num_out);
-void NeuralNet_deinit(NeuralNet* nn);
 
-Status NeuralNet_start(NeuralNet* nn);
-void NeuralNet_stop(NeuralNet* nn);
-
-Status NeuralNet_add_hidden(NeuralNet* nn, int count);
-
-void NeuralNet_inputs_(NeuralNet* nn, Pattern* input);
-#define NeuralNet_inputs(nn, i) NeuralNet_inputs_(nn, (Pattern*)i)
-
-void NeuralNet_outputs_(NeuralNet* nn, Pattern* output);
-#define NeuralNet_outputs(nn, o) NeuralNet_outputs_(nn, (Pattern*)o)
-
-double NeuralNet_adjust_(NeuralNet* nn, Pattern* output, Pattern* target);
-#define NeuralNet_adjust(nn, o, t) NeuralNet_adjust_(nn, (Pattern*)o, (Pattern*)t)
-
-void NeuralNet_process(NeuralNet* nn);
 
 #endif
