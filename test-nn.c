@@ -127,11 +127,11 @@ int main(int argc, char** argv) {
 
     for (int rp = 0; rp < pattern_count; rp++) {
       int p = rand_ps[rp];
-      nn.inputs(&nn, (Pattern*)&xor_input_patterns[p]);
+      nn.set_inputs(&nn, (Pattern*)&xor_input_patterns[p]);
       nn.process(&nn);
       xor_output[p].count = OUTPUT_COUNT;
-      nn.outputs(&nn, (Pattern*)&xor_output[p]);
-      error += nn.adjust(&nn, (Pattern*)&xor_output[p], (Pattern*)&xor_target_patterns[p]);
+      nn.get_outputs(&nn, (Pattern*)&xor_output[p]);
+      error += nn.adjust_weights(&nn, (Pattern*)&xor_output[p], (Pattern*)&xor_target_patterns[p]);
     }
     if ((epoch % 100) == 0) {
       printf("\nEpoch=%-6d : error=%lf", epoch, error);

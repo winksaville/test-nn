@@ -29,9 +29,9 @@ static void NeuralNet_deinit(NeuralNet* nn);
 static Status NeuralNet_start(NeuralNet* nn);
 static void NeuralNet_stop(NeuralNet* nn);
 static Status NeuralNet_add_hidden(NeuralNet* nn, int count);
-static void NeuralNet_inputs(NeuralNet* nn, Pattern* input);
-static void NeuralNet_outputs(NeuralNet* nn, Pattern* output);
-static double NeuralNet_adjust(NeuralNet* nn, Pattern* output, Pattern* target);
+static void NeuralNet_set_inputs(NeuralNet* nn, Pattern* input);
+static void NeuralNet_get_outputs(NeuralNet* nn, Pattern* output);
+static double NeuralNet_adjust_weights(NeuralNet* nn, Pattern* output, Pattern* target);
 static void NeuralNet_process(NeuralNet* nn);
 
 static Status NeuralNet_create_layer(NeuronLayer* l, int count) {
@@ -120,9 +120,9 @@ Status NeuralNet_init(NeuralNet* nn, int num_in_neurons, int num_hidden_layers,
   nn->start = NeuralNet_start;
   nn->stop = NeuralNet_stop;
   nn->add_hidden = NeuralNet_add_hidden;
-  nn->inputs = NeuralNet_inputs;
-  nn->outputs = NeuralNet_outputs;
-  nn->adjust = NeuralNet_adjust;
+  nn->set_inputs = NeuralNet_set_inputs;
+  nn->get_outputs = NeuralNet_get_outputs;
+  nn->adjust_weights = NeuralNet_adjust_weights;
   nn->process = NeuralNet_process;
 
   status = STATUS_OK;
@@ -219,16 +219,16 @@ static void NeuralNet_stop(NeuralNet* nn) {
   dbg("NeuralNet_stop:-%p\n", nn);
 }
 
-static void NeuralNet_inputs(NeuralNet* nn, Pattern* input) {
-  dbg("NeuralNet_inputs_:+%p count=%d input_layer count=%d\n",
+static void NeuralNet_set_inputs(NeuralNet* nn, Pattern* input) {
+  dbg("NeuralNet_set_inputs_:+%p count=%d input_layer count=%d\n",
       nn, input->count, nn->layers[0].count);
   for (int n = 0; n < nn->layers[0].count; n++) {
     // "Calculate" the output for the input neurons
     Neuron* neuron = &nn->layers[0].neurons[n];
     neuron->output = input->data[n];
-    dbg("NeuralNet_inputs_: %p neuron=%p output=%lf\n", nn, neuron, neuron->output);
+    dbg("NeuralNet_set_inputs_: %p neuron=%p output=%lf\n", nn, neuron, neuron->output);
   }
-  dbg("NeuralNet_inputs_:-%p\n", nn);
+  dbg("NeuralNet_set_inputs_:-%p\n", nn);
 }
 
 static void NeuralNet_process(NeuralNet* nn) {
@@ -265,7 +265,7 @@ static void NeuralNet_process(NeuralNet* nn) {
   dbg("NeuralNet_process_:-%p\n", nn);
 }
 
-static void NeuralNet_outputs(NeuralNet* nn, Pattern* output) {
+static void NeuralNet_get_outputs(NeuralNet* nn, Pattern* output) {
   int count;
   dbg("NeuralNet_outputs_:+%p count=%d\n", nn, output->count);
   if (output->count > nn->layers[nn->out_layer].count) {
@@ -280,12 +280,12 @@ static void NeuralNet_outputs(NeuralNet* nn, Pattern* output) {
   dbg("NeuralNet_outputs_:-%p\n", nn);
 }
 
-static double NeuralNet_adjust(NeuralNet* nn, Pattern* output, Pattern* target) {
-  dbg("NeuralNet_adjust_:+%p output count=%d target count=%d\n",
+static double NeuralNet_adjust_weights(NeuralNet* nn, Pattern* output, Pattern* target) {
+  dbg("NeuralNet_adjust_weights_:+%p output count=%d target count=%d\n",
       nn, output->count, target->count);
 
   // Calculate the network error and partial derivative of the error for the output layer
-  dbg("\nNeuralNet_adjust_: %p calculate pd_error for output neurons and total_error\n", nn);
+  dbg("\nNeuralNet_adjust_weights_: %p calculate pd_error for output neurons and total_error\n", nn);
   nn->error = 0.0;
   assert(output->count == target->count);
   NeuronLayer* output_layer = &nn->layers[nn->out_layer];
@@ -300,50 +300,51 @@ static double NeuralNet_adjust(NeuralNet* nn, Pattern* output, Pattern* target) 
     // Compute the sub of the square of the error and add to total_error
     double sse = 0.5 * err * err;
     nn->error += sse;
-    dbg("NeuralNet_adjust_: %p out_layer=%d:%d target=%lf output=%lf err=%lf pd_err=%lf sse=%lf\n",
+    dbg("NeuralNet_adjust_weights_: %p out_layer=%d:%d target=%lf output=%lf err=%lf pd_err=%lf sse=%lf\n",
         nn, nn->out_layer, n, target->data[n], output->data[n], err, pd_err, sse);
   }
-  dbg("NeuralNet_adjust_: %p nn->error=%lf\n", nn, nn->error);
+  dbg("NeuralNet_adjust_weights_: %p nn->error=%lf\n", nn, nn->error);
 
   // For all of layers starting at the output layer back propagate the pd_error
   // to the previous layers. The output layers pd_error has been calculated above
-  dbg("\nNeuralNet_adjust_: %p backpropagate pd_error for the hidden layers\n", nn);
+  dbg("\nNeuralNet_adjust_weights_: %p backpropagate pd_error for the hidden layers\n", nn);
   int first_hidden_layer = 1;
   for (int l = nn->out_layer; l > first_hidden_layer; l--) {
     NeuronLayer* cur_layer = &nn->layers[l];
     NeuronLayer* prev_layer = &nn->layers[l-1];
-    dbg("NeuralNet_adjust_: %p cur_layer=%d prev_layer=%d\n", nn, l, l-1);
+    dbg("NeuralNet_adjust_weights_: %p cur_layer=%d prev_layer=%d\n", nn, l, l-1);
 
     // Compute the partial derivative of the error for the previous layer
     for (int npl = 0; npl < prev_layer->count; npl++) {
       double sum_weighted_pd_err = 0.0;
       for (int ncl = 0; ncl < cur_layer->count; ncl++) {
         double pd_err = cur_layer->neurons[ncl].pd_error;
-        dbg("NeuralNet_adjust_: %p cur_layer:%d:%d pd_err=%lf\n",
+        dbg("NeuralNet_adjust_weights_: %p cur_layer:%d:%d pd_err=%lf\n",
             nn, l, ncl, pd_err);
         double weight = cur_layer->neurons[ncl].weights[npl+1];
-        dbg("NeuralNet_adjust_: %p cur_layer:%d:%d weights[%d]=%lf\n",
+        dbg("NeuralNet_adjust_weights_: %p cur_layer:%d:%d weights[%d]=%lf\n",
             nn, l, ncl, npl+1, weight);
         sum_weighted_pd_err += pd_err * weight;
-        dbg("NeuralNet_adjust_: %p cur_layer:%d:%d sum_weighted_pd_err:%lf\n",
+        dbg("NeuralNet_adjust_weights_: %p cur_layer:%d:%d sum_weighted_pd_err:%lf\n",
             nn, l, ncl, sum_weighted_pd_err);
       }
 
       double prev_out = prev_layer->neurons[npl].output;
       double pd_prev_out = prev_out * (1.0 - prev_out);
-      dbg("NeuralNet_adjust_: %p prev_layer:%d:%d pd_prev_out:%lf = prev_out:%lf * (1.0 - prev_out:%lf)\n",
+      dbg("NeuralNet_adjust_weights_: %p prev_layer:%d:%d pd_prev_out:%lf = prev_out:%lf * (1.0 - prev_out:%lf)\n",
         nn, l-1, npl, pd_prev_out, prev_out, prev_out);
       prev_layer->neurons[npl].pd_error = sum_weighted_pd_err * pd_prev_out;
-      dbg("NeuralNet_adjust_: %p prev_layer:%d:%d pd_error:%lf = sum_weighted_pd_err:%lf * pd_prev_out:%lf\n",
+      dbg("NeuralNet_adjust_weights_: %p prev_layer:%d:%d pd_error:%lf = sum_weighted_pd_err:%lf * pd_prev_out:%lf\n",
         nn, l-1, npl, prev_layer->neurons[npl].pd_error, sum_weighted_pd_err, pd_prev_out);
     }
   }
 
   // Update the weights for hidden layers and output layer
-  dbg("\nNeuralNet_adjust_: %p update weights learning_rate=%lf momemutum_factor=%lf\n", nn, nn->learning_rate, nn->momentum_factor);
+  dbg("\nNeuralNet_adjust_weights_: %p update weights learning_rate=%lf momemutum_factor=%lf\n",
+      nn, nn->learning_rate, nn->momentum_factor);
   for (int l = 1; l <= nn->out_layer; l++) {
     NeuronLayer* layer = &nn->layers[l];
-    dbg("NeuralNet_adjust_: %p loop through layer %d\n", nn, l);
+    dbg("NeuralNet_adjust_weights_: %p loop through layer %d\n", nn, l);
     for (int n = 0; n < layer->count; n++) {
       Neuron* neuron = &layer->neurons[n];
       NeuronLayer* inputs = neuron->inputs;
@@ -361,33 +362,33 @@ static double NeuralNet_adjust(NeuralNet* nn, Pattern* output, Pattern* target) 
       dbg("momentum:%lf = nn->momentum_factor:%lf momentums[%d]:%lf\n",
           momentum, nn->momentum_factor, -1, momentums[-1]);
       momentums[-1] = (nn->learning_rate * pd_err) + momentum;
-      dbg("NeuralNet_adjust_: %p %d:%d momentums[%d]:%lf = (eta:%lf * pd_err:%lf) + momentum:%lf bias\n",
+      dbg("NeuralNet_adjust_weights_: %p %d:%d momentums[%d]:%lf = (eta:%lf * pd_err:%lf) + momentum:%lf bias\n",
           nn, l, n, -1, momentums[-1], nn->learning_rate, pd_err, momentum);
 
       double w = weights[-1];
       weights[-1] = weights[-1] + momentums[-1];
-      dbg("NeuralNet_adjust_: %p %d:%d weights[%d]:%lf = weights[%d]:%lf momentums[%d]=%lf bias\n",
+      dbg("NeuralNet_adjust_weights_: %p %d:%d weights[%d]:%lf = weights[%d]:%lf momentums[%d]=%lf bias\n",
           nn, l, n, -1, weights[-1], -1, w, -1, momentums[-1]);
 
 
       // Loop through this neurons input neurons adjusting the weights and momentums
-      dbg("NeuralNet_adjust_: %p loop through neurons for %d:%d update weights pd_err=%lf\n", nn, l, n, pd_err);
+      dbg("NeuralNet_adjust_weights_: %p loop through neurons for %d:%d update weights pd_err=%lf\n", nn, l, n, pd_err);
       for (int i = 0; i < neuron->inputs->count; i++) {
         // Update the weights
         double input = inputs->neurons[i].output;
         momentum = nn->momentum_factor * momentums[i];
         momentums[i]  = (nn->learning_rate * input * pd_err) + momentum;
-        dbg("NeuralNet_adjust_: %p %d:%d momentums[%d]:%lf = (eta:%lf * input:%lf pd_err:%lf) + momentum:%lf\n",
+        dbg("NeuralNet_adjust_weights_: %p %d:%d momentums[%d]:%lf = (eta:%lf * input:%lf pd_err:%lf) + momentum:%lf\n",
             nn, l, n, i, momentums[i], nn->learning_rate, input, pd_err, momentum);
 
         w = weights[i];
         weights[i] = weights[i] + momentums[i];
-        dbg("NeuralNet_adjust_: %p %d:%d weights[%d]:%lf = weights[%d]:%lf + momentums[%d]=%lf\n",
+        dbg("NeuralNet_adjust_weights_: %p %d:%d weights[%d]:%lf = weights[%d]:%lf + momentums[%d]=%lf\n",
             nn, l, n, i, weights[i], i, w, i, momentums[i]);
       }
     }
   }
 
-  dbg("NeuralNet_adjust_:-%p nn->error=%lf\n", nn, nn->error);
+  dbg("NeuralNet_adjust_weights_:-%p nn->error=%lf\n", nn, nn->error);
   return nn->error;
 }

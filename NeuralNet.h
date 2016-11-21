@@ -49,11 +49,11 @@ typedef void (*NeuralNet_Stop)(NeuralNet* nn);
 
 typedef Status (*NeuralNet_AddHidden)(NeuralNet* nn, int count);
 
-typedef void (*NeuralNet_Inputs)(NeuralNet* nn, Pattern* input);
+typedef void (*NeuralNet_SetInputs)(NeuralNet* nn, Pattern* input);
 
-typedef void (*NeuralNet_Outputs)(NeuralNet* nn, Pattern* output);
+typedef void (*NeuralNet_GetOutputs)(NeuralNet* nn, Pattern* output);
 
-typedef double (*NeuralNet_Adjust)(NeuralNet* nn, Pattern* output, Pattern* target);
+typedef double (*NeuralNet_AdjustWeights)(NeuralNet* nn, Pattern* output, Pattern* target);
 
 typedef void (*NeuralNet_Process)(NeuralNet* nn);
 
@@ -97,9 +97,9 @@ typedef struct NeuralNet {
   NeuralNet_Start start;
   NeuralNet_Stop stop;
   NeuralNet_AddHidden add_hidden;
-  NeuralNet_Inputs inputs;
-  NeuralNet_Outputs outputs;
-  NeuralNet_Adjust adjust;
+  NeuralNet_SetInputs set_inputs;
+  NeuralNet_GetOutputs get_outputs;
+  NeuralNet_AdjustWeights adjust_weights;
   NeuralNet_Process process;
 
 } NeuralNet;
