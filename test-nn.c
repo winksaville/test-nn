@@ -131,9 +131,10 @@ int main(int argc, char** argv) {
       nn.process(&nn);
       xor_output[p].count = OUTPUT_COUNT;
       nn.get_outputs(&nn, (Pattern*)&xor_output[p]);
-      error += nn.adjust_weights(&nn, (Pattern*)&xor_output[p], (Pattern*)&xor_target_patterns[p]);
+      error += nn.adjust_weights(&nn, (Pattern*)&xor_output[p],
+          (Pattern*)&xor_target_patterns[p]);
 
-      writer.begin_epoch(&writer, (epoch * 100) + rp);
+      writer.begin_epoch(&writer, (epoch * pattern_count) + rp);
       writer.write_epoch(&writer);
       writer.end_epoch(&writer);
     }
