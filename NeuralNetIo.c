@@ -91,10 +91,10 @@ static Status begin_epoch(NeuralNetIoWriter* writer, size_t epoch) {
   }
 
   // Write header
-  char* extra_data = "0.0 0.0 0.0\n1.0 1.0 1.0 0.0\n";
-  status = writer->write_str(writer, extra_data);
+  char* bounding_box = "0.0 0.0 -12.0 0.0\n1.0 1.0 12.0 0.0\n";
+  status = writer->write_str(writer, bounding_box);
   if (StatusErr(status)) {
-    printf("NeuralNetIoWriter_init: unable to write extra_data\n");
+    printf("NeuralNetIoWriter_init: unable to write bounding_box\n");
     goto done;
   }
 
