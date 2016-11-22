@@ -132,6 +132,10 @@ int main(int argc, char** argv) {
       xor_output[p].count = OUTPUT_COUNT;
       nn.get_outputs(&nn, (Pattern*)&xor_output[p]);
       error += nn.adjust_weights(&nn, (Pattern*)&xor_output[p], (Pattern*)&xor_target_patterns[p]);
+
+      writer.begin_epoch(&writer, (epoch * 100) + rp);
+      writer.write_epoch(&writer);
+      writer.end_epoch(&writer);
     }
     if ((epoch % 100) == 0) {
       printf("\nEpoch=%-6d : error=%lf", epoch, error);
@@ -170,9 +174,6 @@ int main(int argc, char** argv) {
 
   }
 
-  writer.begin_epoch(&writer, 0);
-  writer.write_str(&writer, "hello\n");
-  writer.end_epoch(&writer);
 
 done:
   writer.deinit(&writer);

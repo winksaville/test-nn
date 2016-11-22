@@ -104,6 +104,95 @@ done:
   return status;
 }
 
+static Status write_epoch(NeuralNetIoWriter* writer) {
+  Status status;
+
+  NeuralNet* nn = writer->nn;
+  double xaxis;
+  double yaxis;
+  double zaxis;
+
+  double xaxis_max = 1.0;
+  double yaxis_max = 1.0;
+  double zaxis_max = 1.0;
+
+  double xaxis_count = nn->out_layer + 1.0;
+  xaxis_count += 1.0; // +1.0 for the output layer's output
+  double xaxis_offset = xaxis_max / (xaxis_count + 1.0);
+
+  double yaxis_count;
+  double yaxis_offset;
+
+  char buffer[1024];
+
+
+  // Write the input neuron's output values
+  yaxis_count = nn->layers[0].count;
+  yaxis_offset = yaxis_max / (yaxis_count + 1.0);
+  yaxis = yaxis_offset;
+
+  xaxis = xaxis_offset;
+  for (int n = 0; n < yaxis_count; n++) {
+    Neuron* neuron = &nn->layers[0].neurons[n];
+    snprintf(buffer, sizeof(buffer), "%lf %lf %lf %lf\n",
+        xaxis, yaxis, neuron->output, neuron->output);
+    writer->write_str(writer, buffer);
+    yaxis += yaxis_offset;
+  }
+
+  // Write the hidden and output layers weights
+  xaxis += xaxis_offset;
+  for (int l = 1; l <= nn->out_layer; l++) {
+    NeuronLayer* layer = &nn->layers[l];
+
+    // Count the total connectons for the layer
+    int yaxis_count = 0;
+    for (int n = 0; n < layer->count; n++) {
+      // The additional value is for the bias
+      yaxis_count += (layer->neurons[0].inputs->count + 1);
+    }
+    yaxis_offset = yaxis_max / (yaxis_count + 1.0);
+
+    yaxis = yaxis_offset;
+    for (int n = 0; n < layer->count; n++) {
+      // Get the next neuron
+      Neuron* neuron = &layer->neurons[n];
+
+      // Point at the first of the neuron's inputs and weights arrays
+      double* weights = neuron->weights;
+
+      // Loop thought all of the neuron's output the weights
+      // which includes the bias, hence the <= test.
+      for (int i = 0; i <= neuron->inputs->count; i++) {
+        snprintf(buffer, sizeof(buffer), "%lf %lf %lf %lf\n",
+            xaxis, yaxis, weights[i], weights[i]);
+        writer->write_str(writer, buffer);
+        yaxis += yaxis_offset;
+      }
+    }
+    xaxis += xaxis_offset;
+  }
+
+  // Write the onput neuron's output values
+  NeuronLayer* layer = &nn->layers[nn->out_layer];
+  yaxis_count = layer->count;
+  yaxis_offset = yaxis_max / (yaxis_count + 1.0);
+  yaxis = yaxis_offset;
+
+  for (int n = 0; n < yaxis_count; n++) {
+    Neuron* neuron = &layer->neurons[n];
+    snprintf(buffer, sizeof(buffer), "%lf %lf %lf %lf\n",
+        xaxis, yaxis, neuron->output, neuron->output);
+    writer->write_str(writer, buffer);
+    yaxis += yaxis_offset;
+  }
+
+  status = STATUS_OK;
+
+done:
+  return status;
+}
+
 static Status end_epoch(NeuralNetIoWriter* writer) {
   Status status;
 
@@ -130,6 +219,7 @@ Status NeuralNetIoWriter_init(NeuralNetIoWriter* writer, FILE* out_file, NeuralN
   writer->open_file = open_file;
   writer->close_file = close_file;
   writer->begin_epoch = begin_epoch;
+  writer->write_epoch = write_epoch;
   writer->end_epoch = end_epoch;
   writer->write_str = write_str;
 
