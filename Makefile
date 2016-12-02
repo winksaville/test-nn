@@ -8,14 +8,8 @@ ifeq ($(_DBG), +)
   _DBG = 0
 endif
 
-# Make sure _EPOCH_COUNT is at least 1
-_EPOCH_COUNT = +$(EPOCH_COUNT)
-ifeq ($(_EPOCH_COUNT), +)
-  _EPOCH_COUNT = 1
-endif
-
-CC=gcc
-CFLAGS=-O0 -g -DDBG=$(_DBG) -DEPOCH_COUNT=$(_EPOCH_COUNT)
+CC=clang
+CFLAGS=-O0 -g -Wall -DDBG=$(_DBG)
 
 LNK=$(CC)
 LNKFLAGS=-lm

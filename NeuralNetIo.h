@@ -23,10 +23,13 @@
 
 typedef struct NeuralNetIoWriter NeuralNetIoWriter;
 
-typedef void (*NeuralNetIoWriter_deinit)(NeuralNetIoWriter* writer);
+typedef void (*NeuralNetIoWriter_deinit)(NeuralNetIoWriter* writer, int epochs);
 typedef Status (*NeuralNetIoWriter_write_str)(NeuralNetIoWriter* writer, char* s);
-typedef Status (*NeuralNetIoWriter_open_file)(NeuralNetIoWriter* writer, size_t epoch);
-typedef Status (*NeuralNetIoWriter_close_file)(NeuralNetIoWriter* writer);
+typedef Status (*NeuralNetIoWriter_write_int)(NeuralNetIoWriter* writer, int i);
+typedef Status (*NeuralNetIoWriter_write_float)(NeuralNetIoWriter* writer, float f);
+typedef Status (*NeuralNetIoWriter_write_double)(NeuralNetIoWriter* writer, double d);
+typedef Status (*NeuralNetIoWriter_open_file)(NeuralNetIoWriter* writer);
+typedef Status (*NeuralNetIoWriter_close_file)(NeuralNetIoWriter* writer, int epochs);
 typedef Status (*NeuralNetIoWriter_begin_epoch)(NeuralNetIoWriter* writer, size_t epoch);
 typedef Status (*NeuralNetIoWriter_write_epoch)(NeuralNetIoWriter* writer);
 typedef Status (*NeuralNetIoWriter_end_epoch)(NeuralNetIoWriter* writer);
@@ -34,12 +37,7 @@ typedef Status (*NeuralNetIoWriter_end_epoch)(NeuralNetIoWriter* writer);
 typedef struct NeuralNetIoWriter {
   FILE* out_file;       // Output file
   NeuralNet* nn;        // Neural net
-  char* mode;           // Mode string
-  char* out_dir;
-  char* base_file_name;
-  char* suffix;
-
-  char file_name[1024];
+  char* out_path;       // output path
 
   // Methods
   NeuralNetIoWriter_deinit deinit;
@@ -49,11 +47,14 @@ typedef struct NeuralNetIoWriter {
   NeuralNetIoWriter_write_epoch write_epoch;
   NeuralNetIoWriter_end_epoch end_epoch;
   NeuralNetIoWriter_write_str write_str;
+  NeuralNetIoWriter_write_int write_int;
+  NeuralNetIoWriter_write_float write_float;
+  NeuralNetIoWriter_write_double write_double;
 
 } NeuralNetIoWriter;
 
-Status NeuralNetIoWriter_init(NeuralNetIoWriter* writer, FILE* out_file, NeuralNet* nn, char* mode,
-    char* out_dir, char* base_file_name, char* suffix);
+Status NeuralNetIoWriter_init(NeuralNetIoWriter* writer, NeuralNet* nn,
+    int points_per_epoch, char* out_path);
 
 
 #endif

@@ -1,3 +1,5 @@
 outdata/
 test-nn
 *.o
+**/*.nn1
+**/*.vlog

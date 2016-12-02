@@ -27,57 +27,83 @@ static Status write_str(NeuralNetIoWriter* writer, char* data) {
 
   fputs(data, writer->out_file);
   if (ferror(writer->out_file)) {
-     printf("NeuralNetIo.write: %s\n", strerror(errno));
+     printf("NeuralNetIo.write_str: %s\n", strerror(errno));
   }
 
   status = STATUS_OK;
-done:
   return status;
 }
 
-static void deinit(NeuralNetIoWriter* writer) {
-  if (writer->mode != NULL) {
-    free(writer->mode);
-    writer->mode = NULL;
-  }
-}
-
-static Status open_file(NeuralNetIoWriter* writer, size_t epoch) {
+static Status write_int(NeuralNetIoWriter* writer, int data) {
   Status status;
 
-  snprintf(writer->file_name, sizeof(writer->file_name), "%s/%s%06d.%s",
-      writer->out_dir, writer->base_file_name, epoch, writer->suffix);
-  writer->out_file = fopen(writer->file_name, "w");
+  fwrite(&data, sizeof(data), 1, writer->out_file);
+  if (ferror(writer->out_file)) {
+     printf("NeuralNetIo.write_int: %s\n", strerror(errno));
+  }
+
+  status = STATUS_OK;
+  return status;
+}
+
+static Status write_float(NeuralNetIoWriter* writer, float data) {
+  Status status;
+
+  fwrite(&data, sizeof(data), 1, writer->out_file);
+  if (ferror(writer->out_file)) {
+     printf("NeuralNetIo.write_float: %s\n", strerror(errno));
+  }
+
+  status = STATUS_OK;
+  return status;
+}
+
+static Status write_double(NeuralNetIoWriter* writer, double data) {
+  Status status;
+
+  fwrite(&data, sizeof(data), 1, writer->out_file);
+  if (ferror(writer->out_file)) {
+     printf("NeuralNetIo.write_double: %s\n", strerror(errno));
+  }
+
+  status = STATUS_OK;
+  return status;
+}
+
+static void deinit(NeuralNetIoWriter* writer, int epochs) {
+  writer->close_file(writer, epochs);
+}
+
+static Status open_file(NeuralNetIoWriter* writer) {
+  Status status;
+
+  writer->out_file = fopen(writer->out_path, "w");
   if (writer->out_file == NULL) {
-    printf("NeuralNetIo::start_epoch: could not open file: %s err=%s\n",
-        writer->file_name, strerror(errno));
+    printf("NeuralNetIo::start_epoch: could not open file: '%s' err=%s\n",
+        writer->out_path, strerror(errno));
     status = STATUS_ERR;
     goto done;
   }
 
-  // Write header
-  char* header = "x y z value\n";
-  status = writer->write_str(writer, header);
-  if (StatusErr(status)) {
-    printf("NeuralNetIoWriter_init: unable to write header\n");
-    goto done;
-  }
-
   status = STATUS_OK;
 
 done:
   return status;
 }
 
-static Status close_file(NeuralNetIoWriter* writer) {
+static Status close_file(NeuralNetIoWriter* writer, int epochs) {
   Status status;
 
-  fclose(writer->out_file);
-  writer->out_file = NULL;
+  if (writer->out_file != NULL) {
+    fseek(writer->out_file, 0, 0);
+    writer->write_int(writer, epochs);
+
+    fclose(writer->out_file);
+    writer->out_file = NULL;
+  }
 
   status = STATUS_OK;
 
-done:
   return status;
 }
 
@@ -85,22 +111,8 @@ done:
 static Status begin_epoch(NeuralNetIoWriter* writer, size_t epoch) {
   Status status;
 
-  status = writer->open_file(writer, epoch);
-  if (StatusErr(status)) {
-    goto done;
-  }
-
-  // Write header
-  char* bounding_box = "0.0 0.0 -12.0 -12.0\n1.0 1.0 12.0 12.0\n";
-  status = writer->write_str(writer, bounding_box);
-  if (StatusErr(status)) {
-    printf("NeuralNetIoWriter_init: unable to write bounding_box\n");
-    goto done;
-  }
-
   status = STATUS_OK;
 
-done:
   return status;
 }
 
@@ -110,11 +122,11 @@ static Status write_epoch(NeuralNetIoWriter* writer) {
   NeuralNet* nn = writer->nn;
   double xaxis;
   double yaxis;
-  double zaxis;
+  //double zaxis;
 
   double xaxis_max = 1.0;
   double yaxis_max = 1.0;
-  double zaxis_max = 1.0;
+  //double zaxis_max = 1.0;
 
   double xaxis_count = nn->out_layer + 1.0;
   xaxis_count += 1.0; // +1.0 for the output layer's output
@@ -125,6 +137,13 @@ static Status write_epoch(NeuralNetIoWriter* writer) {
 
   char buffer[1024];
 
+  // Write bounding box
+  char* bounding_box = "0.0 0.0 -12.0 -12.0\n1.0 1.0 12.0 12.0\n";
+  status = writer->write_str(writer, bounding_box);
+  if (StatusErr(status)) {
+    printf("NeuralNetIoWriter_init: unable to write bounding_box\n");
+    goto done;
+  }
 
   // Write the input neuron's output values
   yaxis_count = nn->layers[0].count;
@@ -136,7 +155,11 @@ static Status write_epoch(NeuralNetIoWriter* writer) {
     Neuron* neuron = &nn->layers[0].neurons[n];
     snprintf(buffer, sizeof(buffer), "%lf %lf %lf %lf\n",
         xaxis, yaxis, neuron->output, neuron->output);
-    writer->write_str(writer, buffer);
+    status = writer->write_str(writer, buffer);
+    if (StatusErr(status)) {
+      printf("NeuralNetIoWriter_init: unable to write input layer\n");
+      goto done;
+    }
     yaxis += yaxis_offset;
   }
 
@@ -166,7 +189,11 @@ static Status write_epoch(NeuralNetIoWriter* writer) {
       for (int i = 0; i <= neuron->inputs->count; i++) {
         snprintf(buffer, sizeof(buffer), "%lf %lf %lf %lf\n",
             xaxis, yaxis, weights[i], weights[i]);
-        writer->write_str(writer, buffer);
+        status = writer->write_str(writer, buffer);
+        if (StatusErr(status)) {
+          printf("NeuralNetIoWriter_init: unable to write weights\n");
+          goto done;
+        }
         yaxis += yaxis_offset;
       }
     }
@@ -183,7 +210,11 @@ static Status write_epoch(NeuralNetIoWriter* writer) {
     Neuron* neuron = &layer->neurons[n];
     snprintf(buffer, sizeof(buffer), "%lf %lf %lf %lf\n",
         xaxis, yaxis, neuron->output, neuron->output);
-    writer->write_str(writer, buffer);
+    status = writer->write_str(writer, buffer);
+    if (StatusErr(status)) {
+      printf("NeuralNetIoWriter_init: unable to write weights\n");
+      goto done;
+    }
     yaxis += yaxis_offset;
   }
 
@@ -196,25 +227,19 @@ done:
 static Status end_epoch(NeuralNetIoWriter* writer) {
   Status status;
 
-  writer->close_file(writer);
-
   status = STATUS_OK;
 
-done:
   return status;
 }
 
-Status NeuralNetIoWriter_init(NeuralNetIoWriter* writer, FILE* out_file, NeuralNet* nn, char* mode,
-    char* out_dir, char* base_file_name, char* suffix) {
+Status NeuralNetIoWriter_init(NeuralNetIoWriter* writer, NeuralNet* nn,
+    int points_per_epoch, char* out_path) {
   Status status;
 
   // Initialize
-  writer->out_dir = out_dir;
-  writer->base_file_name = base_file_name;
-  writer->suffix = suffix;
-  writer->out_file = out_file;
+  writer->out_file = NULL;
+  writer->out_path = out_path;
   writer->nn = nn;
-  writer->mode = strdup(mode);
   writer->deinit = deinit;
   writer->open_file = open_file;
   writer->close_file = close_file;
@@ -222,30 +247,47 @@ Status NeuralNetIoWriter_init(NeuralNetIoWriter* writer, FILE* out_file, NeuralN
   writer->write_epoch = write_epoch;
   writer->end_epoch = end_epoch;
   writer->write_str = write_str;
+  writer->write_int = write_int;
+  writer->write_float = write_float;
+  writer->write_double = write_double;
 
-  // Check
-#if 0
-  // Currently out_file is opened in begin_epoch
-  if (writer->out_file == NULL) {
-    printf("NeuralNetIoWriter_init: out_file is NULL\n");
-    status = STATUS_BAD_PARAM;
-    goto done;
-  }
-#endif
   if (writer->nn == NULL) {
     printf("NeuralNetIoWriter_init: nn is NULL\n");
     status = STATUS_BAD_PARAM;
   }
-  if (writer->mode == NULL) {
-    printf("NeuralNetIoWriter_init: mode is NULL\n");
-    status = STATUS_BAD_PARAM;
+
+  status = writer->open_file(writer);
+  if (StatusErr(status)) {
+    goto done;
+  }
+
+  // Write Number of epochs as 0 right now
+  status = writer->write_int(writer, 0);
+  if (StatusErr(status)) {
+    printf("NeuralNetIoWriter_init: unable to write epochs\n");
+    goto done;
+  }
+
+  // Write Points per Epoch
+  status = writer->write_int(writer, points_per_epoch);
+  if (StatusErr(status)) {
+    printf("NeuralNetIoWriter_init: unable to write points_per_epoch\n");
+    goto done;
+  }
+
+  // Write header
+  char* header = "x y z value\n";
+  status = writer->write_str(writer, header);
+  if (StatusErr(status)) {
+    printf("NeuralNetIoWriter_init: unable to write header\n");
+    goto done;
   }
 
   status = STATUS_OK;
 
 done:
   if (StatusErr(status)) {
-    writer->deinit(writer);
+    writer->deinit(writer, 0);
   }
 
   return status;

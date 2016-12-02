@@ -28,14 +28,6 @@
 #include <string.h>
 #include <time.h>
 
-#if !defined(EPOCH_COUNT) && (DBG == 1)
-#define EPOCH_COUNT 1
-#endif
-
-#if !defined(EPOCH_COUNT) && (DBG == 0)
-#define EPOCH_COUNT 100000
-#endif
-
 #define INPUT_COUNT 2
 typedef struct InputPattern {
   int count;
@@ -68,14 +60,26 @@ OutputPattern xor_output[sizeof(xor_target_patterns)/sizeof(OutputPattern)];
 
 int main(int argc, char** argv) {
   Status status;
-  struct timespec spec;
+  int epoch = 0;
 
   NeuralNetIoWriter writer;
 
+
   dbg("test-nn:+\n");
+
+  if (argc < 3) {
+    printf("Usage: %s <number of epochs> <output path>\n", argv[0]);
+    status = STATUS_ERR;
+    goto donedone;
+  }
+  int epoch_count = atoi(argv[1]);
+  char* out_path = argv[2];
+
+  dbg("test-nn: epoch_count=%d\n", epoch_count);
 
   // seed the random number generator
 #if 0
+  struct timespec spec;
   clock_gettime(CLOCK_REALTIME, &spec);
   double dnow_us = (((double)spec.tv_sec * 1.0e9) + spec.tv_nsec) / 1.0e3;
   int now = (int)(long)dnow_us;
@@ -85,13 +89,15 @@ int main(int argc, char** argv) {
   srand(1);
 #endif
 
-  status = NeuralNet_init(&nn, 2, 1, 1);
+  int num_inputs = 2;
+  int num_hidden = 1;
+  int num_outputs = 1;
+  status = NeuralNet_init(&nn, num_inputs, num_hidden, num_outputs);
   if (StatusErr(status)) goto done;
 
-  status = nn.add_hidden(&nn, 2);
-  if (StatusErr(status)) goto done;
-
-  status = NeuralNetIoWriter_init(&writer, NULL, &nn, "A", "outdata", "t", "txt");
+  // Each hidden layer is fully connected plus a bias
+  int hidden_neurons = 2;
+  status = nn.add_hidden(&nn, hidden_neurons);
   if (StatusErr(status)) goto done;
 
   status = nn.start(&nn);
@@ -102,9 +108,10 @@ int main(int argc, char** argv) {
   int pattern_count = sizeof(xor_input_patterns)/sizeof(InputPattern);
   int* rand_ps = calloc(pattern_count, sizeof(int));
 
+  status = NeuralNetIoWriter_init(&writer, &nn, nn.get_points(&nn), out_path);
+  if (StatusErr(status)) goto done;
 
-  int epoch_count = EPOCH_COUNT;
-  int epoch;
+
   for (epoch = 0; epoch < epoch_count; epoch++) {
     error = 0.0;
 
@@ -177,9 +184,10 @@ int main(int argc, char** argv) {
 
 
 done:
-  writer.deinit(&writer);
+  writer.deinit(&writer, epoch);
   nn.deinit(&nn);
 
+donedone:
   dbg("test-nn:- status=%d\n", status);
   return 0;
 }

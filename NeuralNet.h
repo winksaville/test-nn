@@ -22,6 +22,7 @@ typedef int Status;
 #define STATUS_ERR 1 //< Error
 #define STATUS_OOM 2 //< Out of memory
 #define STATUS_BAD_PARAM 3 //< Bad parameter
+#define STATUS_BAD_CODE 4  //< A bug in the code
 
 #define STATUS_TO_MANY_HIDDEN 100 //< To many calls to NeuralNet_add_hidden
 
@@ -49,6 +50,8 @@ typedef void (*NeuralNet_Stop)(NeuralNet* nn);
 
 typedef Status (*NeuralNet_AddHidden)(NeuralNet* nn, int count);
 
+typedef int (*NeuralNet_GetPoints)(NeuralNet* nn);
+
 typedef void (*NeuralNet_SetInputs)(NeuralNet* nn, Pattern* input);
 
 typedef void (*NeuralNet_GetOutputs)(NeuralNet* nn, Pattern* output);
@@ -69,6 +72,7 @@ typedef struct Neuron {
   double* momentums;    // Array of momentums for each input plus the bias
   double output;        // The output of this neuron
   double pd_error;      // Partial derative of this neurons error
+  int points;           // Points is number of graphic points
 } Neuron;
 
 typedef struct NeuronLayer {
@@ -85,6 +89,7 @@ typedef struct NeuralNet {
   double error;           // The overall network error
   double learning_rate;   // Learning rate aka 'eta'
   double momentum_factor; // Momentum factor aka 'aplha'
+  int points;             // Points is number
 
   Pattern* input;         // Input pattern
 
@@ -97,6 +102,7 @@ typedef struct NeuralNet {
   NeuralNet_Start start;
   NeuralNet_Stop stop;
   NeuralNet_AddHidden add_hidden;
+  NeuralNet_GetPoints get_points;
   NeuralNet_SetInputs set_inputs;
   NeuralNet_GetOutputs get_outputs;
   NeuralNet_AdjustWeights adjust_weights;
