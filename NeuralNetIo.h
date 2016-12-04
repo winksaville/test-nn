@@ -28,6 +28,7 @@ typedef Status (*NeuralNetIoWriter_write_str)(NeuralNetIoWriter* writer, char* s
 typedef Status (*NeuralNetIoWriter_write_int)(NeuralNetIoWriter* writer, int i);
 typedef Status (*NeuralNetIoWriter_write_float)(NeuralNetIoWriter* writer, float f);
 typedef Status (*NeuralNetIoWriter_write_double)(NeuralNetIoWriter* writer, double d);
+typedef Status (*NeuralNetIoWriter_write_point_val)(NeuralNetIoWriter* writer, float* f);
 typedef Status (*NeuralNetIoWriter_open_file)(NeuralNetIoWriter* writer);
 typedef Status (*NeuralNetIoWriter_close_file)(NeuralNetIoWriter* writer, int epochs);
 typedef Status (*NeuralNetIoWriter_begin_epoch)(NeuralNetIoWriter* writer, size_t epoch);
@@ -50,6 +51,7 @@ typedef struct NeuralNetIoWriter {
   NeuralNetIoWriter_write_int write_int;
   NeuralNetIoWriter_write_float write_float;
   NeuralNetIoWriter_write_double write_double;
+  NeuralNetIoWriter_write_point_val write_point_val;
 
 } NeuralNetIoWriter;
 
