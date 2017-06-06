@@ -64,20 +64,21 @@ int main(int argc, char** argv) {
   Status status;
   unsigned long epoch = 0;
 
-  NeuralNetIoWriter writer;
+  //NeuralNetIoWriter writer;
 
 
   dbg("test-nn:+\n");
 
-  if (argc < 3) {
-    printf("Usage: %s <number of epochs> <output path>\n", argv[0]);
+  if (argc < 2) {
+    printf("Usage: %s <number of epochs>\n", argv[0]);
     status = STATUS_ERR;
     goto donedone;
   }
   unsigned long epoch_count = (unsigned long)atol(argv[1]);
-  char* out_path = argv[2];
+  //char* out_path = argv[2];
 
-  dbg("test-nn: epoch_count=%ld out_path=%s\n", epoch_count, out_path);
+  //dbg("test-nn: epoch_count=%ld out_pat=%s\n", epoch_count, out_path);
+  dbg("test-nn: epoch_count=%ld\n", epoch_count);
 
   // seed the random number generator
 #if 0
@@ -110,8 +111,8 @@ int main(int argc, char** argv) {
   unsigned int pattern_count = sizeof(xor_input_patterns)/sizeof(InputPattern);
   unsigned int* rand_ps = calloc(pattern_count, sizeof(unsigned int));
 
-  status = NeuralNetIoWriter_init(&writer, &nn, nn.get_points(&nn), out_path);
-  if (StatusErr(status)) goto done;
+  //status = NeuralNetIoWriter_init(&writer, &nn, nn.get_points(&nn), out_path);
+  //if (StatusErr(status)) goto done;
 
   struct timeval start;
   gettimeofday(&start, NULL);
@@ -134,7 +135,7 @@ int main(int argc, char** argv) {
       unsigned t = rand_ps[p];
       rand_ps[p] = rand_ps[rp];
       rand_ps[rp] = t;
-      dbg("r0_1=%lf rp=%d rand_ps[%d]=%d\n", r0_1, rp, p, rand_ps[p]);
+      //dbg("r0_1=%lf rp=%d rand_ps[%d]=%d\n", r0_1, rp, p, rand_ps[p]);
     }
 
     // Process the pattern and accumulate the error
@@ -147,9 +148,9 @@ int main(int argc, char** argv) {
       error += nn.adjust_weights(&nn, (Pattern*)&xor_output[p],
           (Pattern*)&xor_target_patterns[p]);
 
-      writer.begin_epoch(&writer, (epoch * pattern_count) + rp);
-      writer.write_epoch(&writer);
-      writer.end_epoch(&writer);
+      //writer.begin_epoch(&writer, (epoch * pattern_count) + rp);
+      //writer.write_epoch(&writer);
+      //writer.end_epoch(&writer);
     }
 
     // Output some progress info
@@ -159,7 +160,7 @@ int main(int argc, char** argv) {
 
     // Stop if we've reached the error_threshold
     if (error < error_threshold) {
-      break;
+      // break;
     }
   }
   struct timeval end;
@@ -202,7 +203,7 @@ int main(int argc, char** argv) {
 
 
 done:
-  writer.deinit(&writer, epoch);
+  //writer.deinit(&writer, epoch);
   nn.deinit(&nn);
 
 donedone:
