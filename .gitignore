@@ -1,6 +1,7 @@
 outdata/
 out.txt
 test-nn
+*.asm
 *.o
 **/*.nn1
 **/*.vlog

@@ -13,6 +13,8 @@ OUTPUT=out.txt
 
 CC=clang
 CFLAGS=-O3 -g -Weverything -Werror -DDBG=$(_DBG)
+OD=objdump
+ODFLAGS=-S -M x86_64,intel
 
 LNK=$(CC)
 LNKFLAGS=-lm
@@ -35,9 +37,10 @@ test-nn.o : test-nn.c NeuralNet.h rand0_1.h Makefile
 
 test-nn : $(test-nn-obj-deps)
 	$(LNK) $(LNKFLAGS) $(test-nn-obj-deps)  -o $@
+	$(OD) $(ODFLAGS) $@ > $@.asm
 
 test: test-nn
-	./test-nn $(CNT) $(OUTPUT)
+	./test-nn $(CNT)
 
 clean :
-	@rm -f test-nn $(test-nn-obj-deps)
+	@rm -f test-nn $(test-nn-obj-deps) *.asm

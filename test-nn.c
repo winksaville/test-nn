@@ -66,6 +66,7 @@ int main(int argc, char** argv) {
 
   //NeuralNetIoWriter writer;
 
+  setlocale(LC_NUMERIC, "");
 
   dbg("test-nn:+\n");
 
@@ -154,9 +155,9 @@ int main(int argc, char** argv) {
     }
 
     // Output some progress info
-    if ((epoch % 10000) == 0) {
-      printf("\nEpoch=%-6ld : error=%lg", epoch, error);
-    }
+    //if ((epoch % 100000) == 0) {
+    //  printf("\nEpoch=%-6d : error=%lg", epoch, error);
+    //}
 
     // Stop if we've reached the error_threshold
     if (error < error_threshold) {
