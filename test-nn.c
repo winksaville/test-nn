@@ -27,40 +27,42 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
+#include <locale.h>
 
 #define INPUT_COUNT 2
 typedef struct InputPattern {
-  int count;
+  unsigned long count;
   double data[INPUT_COUNT];
 } InputPattern;
 
 #define OUTPUT_COUNT 1
 typedef struct OutputPattern {
-  int count;
+  unsigned long count;
   double data[OUTPUT_COUNT];
 } OutputPattern;
 
-InputPattern xor_input_patterns[] = {
+static InputPattern xor_input_patterns[] = {
   { .count = INPUT_COUNT, .data[0] = 0, .data[1] = 0 },
   { .count = INPUT_COUNT, .data[0] = 1, .data[1] = 0 },
   { .count = INPUT_COUNT, .data[0] = 0, .data[1] = 1 },
   { .count = INPUT_COUNT, .data[0] = 1, .data[1] = 1 },
 };
 
-OutputPattern xor_target_patterns[] = {
+static OutputPattern xor_target_patterns[] = {
   { .count = OUTPUT_COUNT, .data[0] = 0 },
   { .count = OUTPUT_COUNT, .data[0] = 1 },
   { .count = OUTPUT_COUNT, .data[0] = 1 },
   { .count = OUTPUT_COUNT, .data[0] = 0 },
 };
 
-NeuralNet nn;
+static NeuralNet nn;
 
-OutputPattern xor_output[sizeof(xor_target_patterns)/sizeof(OutputPattern)];
+static OutputPattern xor_output[sizeof(xor_target_patterns)/sizeof(OutputPattern)];
 
 int main(int argc, char** argv) {
   Status status;
-  int epoch = 0;
+  unsigned long epoch = 0;
 
   NeuralNetIoWriter writer;
 
@@ -72,10 +74,10 @@ int main(int argc, char** argv) {
     status = STATUS_ERR;
     goto donedone;
   }
-  int epoch_count = atoi(argv[1]);
+  unsigned long epoch_count = (unsigned long)atol(argv[1]);
   char* out_path = argv[2];
 
-  dbg("test-nn: epoch_count=%d\n", epoch_count);
+  dbg("test-nn: epoch_count=%ld out_path=%s\n", epoch_count, out_path);
 
   // seed the random number generator
 #if 0
@@ -89,51 +91,55 @@ int main(int argc, char** argv) {
   srand(1);
 #endif
 
-  int num_inputs = 2;
-  int num_hidden = 1;
-  int num_outputs = 1;
+  unsigned long num_inputs = 2;
+  unsigned long num_hidden = 1;
+  unsigned long num_outputs = 1;
   status = NeuralNet_init(&nn, num_inputs, num_hidden, num_outputs);
   if (StatusErr(status)) goto done;
 
   // Each hidden layer is fully connected plus a bias
-  int hidden_neurons = 2;
+  unsigned long hidden_neurons = 2;
   status = nn.add_hidden(&nn, hidden_neurons);
   if (StatusErr(status)) goto done;
 
   status = nn.start(&nn);
   if (StatusErr(status)) goto done;
 
-  double error;
+  double error = 0.0;
   double error_threshold = 0.0004;
-  int pattern_count = sizeof(xor_input_patterns)/sizeof(InputPattern);
-  int* rand_ps = calloc(pattern_count, sizeof(int));
+  unsigned int pattern_count = sizeof(xor_input_patterns)/sizeof(InputPattern);
+  unsigned int* rand_ps = calloc(pattern_count, sizeof(unsigned int));
 
   status = NeuralNetIoWriter_init(&writer, &nn, nn.get_points(&nn), out_path);
   if (StatusErr(status)) goto done;
 
-
+  struct timeval start;
+  gettimeofday(&start, NULL);
   for (epoch = 0; epoch < epoch_count; epoch++) {
     error = 0.0;
-
-    // Re-order rand_patterns
-    for (int p = 0; p < pattern_count; p++) {
-      rand_ps[p] = p;
-    }
 
     // Shuffle rand_patterns by swapping the current
     // position t with a random location after the
     // current position.
-    for (int p = 0; p < pattern_count; p++) {
+
+    // Start by resetting to sequential order
+    for (unsigned int p = 0; p < pattern_count; p++) {
+      rand_ps[p] = p;
+    }
+
+    // Shuffle
+    for (unsigned int p = 0; p < pattern_count; p++) {
       double r0_1 = rand0_1();
-      int rp = p + (int)(r0_1 * (pattern_count - p));
-      int t = rand_ps[p];
+      unsigned int rp = p + (unsigned int)(r0_1 * (pattern_count - p));
+      unsigned t = rand_ps[p];
       rand_ps[p] = rand_ps[rp];
       rand_ps[rp] = t;
       dbg("r0_1=%lf rp=%d rand_ps[%d]=%d\n", r0_1, rp, p, rand_ps[p]);
     }
 
-    for (int rp = 0; rp < pattern_count; rp++) {
-      int p = rand_ps[rp];
+    // Process the pattern and accumulate the error
+    for (unsigned int rp = 0; rp < pattern_count; rp++) {
+      unsigned int p = rand_ps[rp];
       nn.set_inputs(&nn, (Pattern*)&xor_input_patterns[p]);
       nn.process(&nn);
       xor_output[p].count = OUTPUT_COUNT;
@@ -145,37 +151,49 @@ int main(int argc, char** argv) {
       writer.write_epoch(&writer);
       writer.end_epoch(&writer);
     }
-    if ((epoch % 100) == 0) {
-      printf("\nEpoch=%-6d : error=%lf", epoch, error);
+
+    // Output some progress info
+    if ((epoch % 10000) == 0) {
+      printf("\nEpoch=%-6ld : error=%lg", epoch, error);
     }
+
+    // Stop if we've reached the error_threshold
     if (error < error_threshold) {
       break;
     }
   }
-  printf("\n\nEpoch=%d Error=%lf\n", epoch, error);
+  struct timeval end;
+  gettimeofday(&end, NULL);
+
+  double start_usec = (start.tv_sec * 1000000.0) + start.tv_usec;
+  double end_usec = (end.tv_sec * 1000000.0) + end.tv_usec;
+  double time_sec = (end_usec - start_usec) / 1000000;
+  int64_t eps = (int64_t)(epoch / time_sec);
+
+  printf("\n\nEpoch=%'ld Error=%.3lg time=%.3lfs eps=%'ld\n", epoch, error, time_sec, eps);
 
   nn.stop(&nn);
 
   printf("\nPat");
-  for (int i = 0; i < xor_input_patterns[0].count; i++) {
-    printf("\tInput%-4d", i);
+  for (unsigned long i = 0; i < xor_input_patterns[0].count; i++) {
+    printf("\tInput%-4ld", i);
   }
-  for (int t = 0; t < xor_target_patterns[0].count; t++) {
-    printf("\tTarget%-4d", t);
+  for (unsigned long t = 0; t < xor_target_patterns[0].count; t++) {
+    printf("\tTarget%-4ld", t);
   }
-  for (int o = 0; o < xor_output[0].count; o++) {
-    printf("\tOutput%-4d", o);
+  for (unsigned long o = 0; o < xor_output[0].count; o++) {
+    printf("\tOutput%-4ld", o);
   }
   printf("\n");
-  for (int p = 0; p < pattern_count; p++) {
-    printf("%d", p);
-    for (int i = 0; i < xor_input_patterns[p].count; i++) {
+  for (unsigned long p = 0; p < pattern_count; p++) {
+    printf("%ld", p);
+    for (unsigned long i = 0; i < xor_input_patterns[p].count; i++) {
       printf("\t%lf", xor_input_patterns[p].data[i]);
     }
-    for (int t = 0; t < xor_target_patterns[p].count; t++) {
+    for (unsigned long t = 0; t < xor_target_patterns[p].count; t++) {
       printf("\t%lf", xor_target_patterns[p].data[t]);
     }
-    for (int o = 0; o < xor_output[p].count; o++) {
+    for (unsigned long o = 0; o < xor_output[p].count; o++) {
       printf("\t%lf", xor_output[p].data[o]);
     }
     printf("\n");

@@ -8,30 +8,36 @@ ifeq ($(_DBG), +)
   _DBG = 0
 endif
 
+CNT=10000000
+OUTPUT=out.txt
+
 CC=clang
-CFLAGS=-O0 -g -Wall -DDBG=$(_DBG)
+CFLAGS=-O3 -g -Weverything -Werror -DDBG=$(_DBG)
 
 LNK=$(CC)
 LNKFLAGS=-lm
 
-test-nn-obj-deps=NeuralNet.o NeuralNetIo.o test-nn.o
+test-nn-obj-deps=NeuralNet.o NeuralNetIo.o rand0_1.o test-nn.o
 
 all: test-nn
+
+rand0_1.o : rand0_1.c NeuralNet.h NeuralNetIo.h rand0_1.h Makefile
+	$(CC) $(CFLAGS) -c $< -o $@
 
 NeuralNetIo.o : NeuralNetIo.c NeuralNet.h NeuralNetIo.h Makefile
 	$(CC) $(CFLAGS) -c $< -o $@
 
-NeuralNet.o : NeuralNet.c NeuralNet.h Makefile
+NeuralNet.o : NeuralNet.c NeuralNet.h rand0_1.h Makefile
 	$(CC) $(CFLAGS) -c $< -o $@
 
-test-nn.o : test-nn.c NeuralNet.h Makefile
+test-nn.o : test-nn.c NeuralNet.h rand0_1.h Makefile
 	$(CC) $(CFLAGS) -c $< -o $@
 
 test-nn : $(test-nn-obj-deps)
 	$(LNK) $(LNKFLAGS) $(test-nn-obj-deps)  -o $@
 
 test: test-nn
-	./test-nn
+	./test-nn $(CNT) $(OUTPUT)
 
 clean :
 	@rm -f test-nn $(test-nn-obj-deps)

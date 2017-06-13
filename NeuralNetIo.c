@@ -16,6 +16,7 @@
 
 #include "NeuralNet.h"
 #include "NeuralNetIo.h"
+#include "unused.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -34,7 +35,7 @@ static Status write_str(NeuralNetIoWriter* writer, char* data) {
   return status;
 }
 
-static Status write_int(NeuralNetIoWriter* writer, int data) {
+static Status write_int(NeuralNetIoWriter* writer, unsigned long data) {
   Status status;
 
   fwrite(&data, sizeof(data), 1, writer->out_file);
@@ -46,7 +47,7 @@ static Status write_int(NeuralNetIoWriter* writer, int data) {
   return status;
 }
 
-static Status write_float(NeuralNetIoWriter* writer, float data) {
+static Status write_float(NeuralNetIoWriter* writer, double data) {
   Status status;
 
   fwrite(&data, sizeof(data), 1, writer->out_file);
@@ -70,7 +71,7 @@ static Status write_double(NeuralNetIoWriter* writer, double data) {
   return status;
 }
 
-static void deinit(NeuralNetIoWriter* writer, int epochs) {
+static void deinit(NeuralNetIoWriter* writer, unsigned long epochs) {
   writer->close_file(writer, epochs);
 }
 
@@ -91,7 +92,7 @@ done:
   return status;
 }
 
-static Status close_file(NeuralNetIoWriter* writer, int epochs) {
+static Status close_file(NeuralNetIoWriter* writer, unsigned long epochs) {
   Status status;
 
   if (writer->out_file != NULL) {
@@ -111,15 +112,18 @@ static Status close_file(NeuralNetIoWriter* writer, int epochs) {
 static Status begin_epoch(NeuralNetIoWriter* writer, size_t epoch) {
   Status status;
 
+  unused(writer);
+  unused(epoch);
+
   status = STATUS_OK;
 
   return status;
 }
 
-static Status write_point_val(NeuralNetIoWriter* writer, float* point) {
-  Status status;
+static Status write_point_val(NeuralNetIoWriter* writer, double* point) {
+  Status status = STATUS_OK;
 
-  for (int b = 0; b < 4; b++) {
+  for (unsigned long b = 0; b < 4; b++) {
     status = writer->write_float(writer, point[b]);
     if (StatusErr(status)) {
       return status;
@@ -148,7 +152,7 @@ static Status write_epoch(NeuralNetIoWriter* writer) {
   double yaxis_offset;
 
   // Write bounding box
-  float bounding_box[8] = {
+  double bounding_box[8] = {
     0.0, 0.0, -12.0, -12.0,
     1.0, 1.0, +12.0, +12.0
   };
@@ -169,9 +173,9 @@ static Status write_epoch(NeuralNetIoWriter* writer) {
   yaxis = yaxis_offset;
 
   xaxis = xaxis_offset;
-  for (int n = 0; n < yaxis_count; n++) {
+  for (unsigned long n = 0; n < yaxis_count; n++) {
     Neuron* neuron = &nn->layers[0].neurons[n];
-    float point[4] = { xaxis, yaxis, neuron->output, neuron->output };
+    double point[4] = { xaxis, yaxis, neuron->output, neuron->output };
     status = writer->write_point_val(writer, point);
     if (StatusErr(status)) {
       printf("NeuralNetIoWriter_init: unable to write input layer\n");
@@ -182,19 +186,19 @@ static Status write_epoch(NeuralNetIoWriter* writer) {
 
   // Write the hidden and output layers weights
   xaxis += xaxis_offset;
-  for (int l = 1; l <= nn->out_layer; l++) {
+  for (unsigned long l = 1; l <= nn->out_layer; l++) {
     NeuronLayer* layer = &nn->layers[l];
 
     // Count the total connectons for the layer
-    int yaxis_count = 0;
-    for (int n = 0; n < layer->count; n++) {
+    unsigned long layer_count = 0;
+    for (unsigned long n = 0; n < layer->count; n++) {
       // The additional value is for the bias
-      yaxis_count += (layer->neurons[0].inputs->count + 1);
+      layer_count += (layer->neurons[0].inputs->count + 1);
     }
-    yaxis_offset = yaxis_max / (yaxis_count + 1.0);
+    yaxis_offset = yaxis_max / (layer_count + 1.0);
 
     yaxis = yaxis_offset;
-    for (int n = 0; n < layer->count; n++) {
+    for (unsigned long n = 0; n < layer->count; n++) {
       // Get the next neuron
       Neuron* neuron = &layer->neurons[n];
 
@@ -203,8 +207,8 @@ static Status write_epoch(NeuralNetIoWriter* writer) {
 
       // Loop thought all of the neuron's output the weights
       // which includes the bias, hence the <= test.
-      for (int i = 0; i <= neuron->inputs->count; i++) {
-        float point[4] = { xaxis, yaxis, weights[i], weights[i] };
+      for (unsigned long i = 0; i <= neuron->inputs->count; i++) {
+        double point[4] = { xaxis, yaxis, weights[i], weights[i] };
         status = writer->write_point_val(writer, point);
         if (StatusErr(status)) {
           printf("NeuralNetIoWriter_init: unable to write weights\n");
@@ -222,9 +226,9 @@ static Status write_epoch(NeuralNetIoWriter* writer) {
   yaxis_offset = yaxis_max / (yaxis_count + 1.0);
   yaxis = yaxis_offset;
 
-  for (int n = 0; n < yaxis_count; n++) {
+  for (unsigned long n = 0; n < yaxis_count; n++) {
     Neuron* neuron = &layer->neurons[n];
-    float point[4] = { xaxis, yaxis, neuron->output, neuron->output };
+    double point[4] = { xaxis, yaxis, neuron->output, neuron->output };
     status = writer->write_point_val(writer, point);
     if (StatusErr(status)) {
       printf("NeuralNetIoWriter_init: unable to write weights\n");
@@ -242,13 +246,15 @@ done:
 static Status end_epoch(NeuralNetIoWriter* writer) {
   Status status;
 
+  unused(writer);
+
   status = STATUS_OK;
 
   return status;
 }
 
 Status NeuralNetIoWriter_init(NeuralNetIoWriter* writer, NeuralNet* nn,
-    int points_per_epoch, char* out_path) {
+    unsigned long points_per_epoch, char* out_path) {
   Status status;
 
   // Initialize

@@ -20,6 +20,10 @@
 /**
  * @return a double, N, such that 0.0 >= N < 1.0
  */
-#define rand0_1() ((double)rand()/((double)RAND_MAX+1))
+#if 0
+#define rand0_1(void) ((double)rand()/((double)RAND_MAX+1))
+#else
+extern double rand0_1(void);
+#endif
 
 #endif

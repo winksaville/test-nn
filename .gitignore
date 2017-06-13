@@ -1,4 +1,5 @@
 outdata/
+out.txt
 test-nn
 *.o
 **/*.nn1

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#ifndef _NEURAL_NET_IO_H_
-#define _NEURAL_NET_IO_H_
+#ifndef NEURAL_NET_IO_H
+#define NEURAL_NET_IO_H
 
 #include "NeuralNet.h"
 
@@ -23,14 +23,14 @@
 
 typedef struct NeuralNetIoWriter NeuralNetIoWriter;
 
-typedef void (*NeuralNetIoWriter_deinit)(NeuralNetIoWriter* writer, int epochs);
+typedef void (*NeuralNetIoWriter_deinit)(NeuralNetIoWriter* writer, unsigned long epochs);
 typedef Status (*NeuralNetIoWriter_write_str)(NeuralNetIoWriter* writer, char* s);
-typedef Status (*NeuralNetIoWriter_write_int)(NeuralNetIoWriter* writer, int i);
-typedef Status (*NeuralNetIoWriter_write_float)(NeuralNetIoWriter* writer, float f);
+typedef Status (*NeuralNetIoWriter_write_int)(NeuralNetIoWriter* writer, unsigned long i);
+typedef Status (*NeuralNetIoWriter_write_float)(NeuralNetIoWriter* writer, double f);
 typedef Status (*NeuralNetIoWriter_write_double)(NeuralNetIoWriter* writer, double d);
-typedef Status (*NeuralNetIoWriter_write_point_val)(NeuralNetIoWriter* writer, float* f);
+typedef Status (*NeuralNetIoWriter_write_point_val)(NeuralNetIoWriter* writer, double* f);
 typedef Status (*NeuralNetIoWriter_open_file)(NeuralNetIoWriter* writer);
-typedef Status (*NeuralNetIoWriter_close_file)(NeuralNetIoWriter* writer, int epochs);
+typedef Status (*NeuralNetIoWriter_close_file)(NeuralNetIoWriter* writer, unsigned long epochs);
 typedef Status (*NeuralNetIoWriter_begin_epoch)(NeuralNetIoWriter* writer, size_t epoch);
 typedef Status (*NeuralNetIoWriter_write_epoch)(NeuralNetIoWriter* writer);
 typedef Status (*NeuralNetIoWriter_end_epoch)(NeuralNetIoWriter* writer);
@@ -56,7 +56,7 @@ typedef struct NeuralNetIoWriter {
 } NeuralNetIoWriter;
 
 Status NeuralNetIoWriter_init(NeuralNetIoWriter* writer, NeuralNet* nn,
-    int points_per_epoch, char* out_path);
+    unsigned long points_per_epoch, char* out_path);
 
 
 #endif
