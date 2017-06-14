@@ -23,6 +23,8 @@
 #include "rand0_1.h"
 
 #include <errno.h>
+#include <limits.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -63,21 +65,51 @@ static OutputPattern xor_output[sizeof(xor_target_patterns)/sizeof(OutputPattern
 int main(int argc, char** argv) {
   Status status;
   unsigned long epoch = 0;
+  unsigned long epoch_count = 0;
+  double error = 0.0;
+  double error_threshold = 0.0004;
 
-  NeuralNetIoWriter writer;
+  NeuralNetIoWriter *writer = NULL;
 
+  setlocale(LC_NUMERIC, "");
 
   dbg("test-nn:+\n");
 
-  if (argc < 3) {
-    printf("Usage: %s <number of epochs> <output path>\n", argv[0]);
+  if (argc < 2) {
+    printf("Usage: %s <param1> <file>\n", argv[0]);
+    printf("  param1: if param1 >= 1 then number of epochs\n");
+    printf("          else if param1 >= 0.0 && param1 < 1.0 then error threshold typical = 0.0004\n");
+    printf("          else param1 invalid\n");
+    printf("  file:   output file, optional\n");
     status = STATUS_ERR;
     goto donedone;
   }
-  unsigned long epoch_count = (unsigned long)atol(argv[1]);
-  char* out_path = argv[2];
 
-  dbg("test-nn: epoch_count=%ld out_path=%s\n", epoch_count, out_path);
+  error_threshold = strtod(argv[1], NULL);
+  if (error_threshold < 0.0) {
+    printf("param1:%'lg is < 0.0, aborting\n", error_threshold);
+    status = STATUS_ERR;
+    goto donedone;
+  } else if ((error_threshold > 0.0) && (error_threshold < 1.0)) {
+    epoch_count = ULONG_MAX;
+  } else {
+    double count = floor(error_threshold);
+    if (count > ULONG_MAX) {
+      printf("param1:%'lg > %'lg:%'lu, aborting\n", count, (double)ULONG_MAX, ULONG_MAX);
+      status = STATUS_ERR;
+      goto donedone;
+    }
+    epoch_count = (unsigned long)count;
+    error_threshold = 0.0;
+  }
+
+
+  char* out_path = "";
+  if (argc == 3) {
+    out_path = argv[2];
+  }
+
+  dbg("test-nn: epoch_count=%ld out_pat='%s'\n", epoch_count, out_path);
 
   // seed the random number generator
 #if 0
@@ -105,13 +137,16 @@ int main(int argc, char** argv) {
   status = nn.start(&nn);
   if (StatusErr(status)) goto done;
 
-  double error = 0.0;
-  double error_threshold = 0.0004;
   unsigned int pattern_count = sizeof(xor_input_patterns)/sizeof(InputPattern);
   unsigned int* rand_ps = calloc(pattern_count, sizeof(unsigned int));
 
-  status = NeuralNetIoWriter_init(&writer, &nn, nn.get_points(&nn), out_path);
-  if (StatusErr(status)) goto done;
+  if (strlen(out_path) > 0) {
+    writer = calloc(1, sizeof(NeuralNetIoWriter));
+    status = NeuralNetIoWriter_init(writer, &nn, nn.get_points(&nn), out_path);
+    if (StatusErr(status)) goto done;
+  } else {
+    writer = NULL;
+  }
 
   struct timeval start;
   gettimeofday(&start, NULL);
@@ -134,7 +169,7 @@ int main(int argc, char** argv) {
       unsigned t = rand_ps[p];
       rand_ps[p] = rand_ps[rp];
       rand_ps[rp] = t;
-      dbg("r0_1=%lf rp=%d rand_ps[%d]=%d\n", r0_1, rp, p, rand_ps[p]);
+      //dbg("r0_1=%lf rp=%d rand_ps[%d]=%d\n", r0_1, rp, p, rand_ps[p]);
     }
 
     // Process the pattern and accumulate the error
@@ -147,14 +182,11 @@ int main(int argc, char** argv) {
       error += nn.adjust_weights(&nn, (Pattern*)&xor_output[p],
           (Pattern*)&xor_target_patterns[p]);
 
-      writer.begin_epoch(&writer, (epoch * pattern_count) + rp);
-      writer.write_epoch(&writer);
-      writer.end_epoch(&writer);
-    }
-
-    // Output some progress info
-    if ((epoch % 10000) == 0) {
-      printf("\nEpoch=%-6ld : error=%lg", epoch, error);
+      if (writer != NULL) {
+        writer->begin_epoch(writer, (epoch * pattern_count) + rp);
+        writer->write_epoch(writer);
+        writer->end_epoch(writer);
+      }
     }
 
     // Stop if we've reached the error_threshold
@@ -168,7 +200,7 @@ int main(int argc, char** argv) {
   double start_usec = (start.tv_sec * 1000000.0) + start.tv_usec;
   double end_usec = (end.tv_sec * 1000000.0) + end.tv_usec;
   double time_sec = (end_usec - start_usec) / 1000000;
-  int64_t eps = (int64_t)(epoch / time_sec);
+  unsigned long eps = (unsigned long)(epoch / time_sec);
 
   printf("\n\nEpoch=%'ld Error=%.3lg time=%.3lfs eps=%'ld\n", epoch, error, time_sec, eps);
 
@@ -202,7 +234,9 @@ int main(int argc, char** argv) {
 
 
 done:
-  writer.deinit(&writer, epoch);
+  if (writer != NULL) {
+    writer->deinit(writer, epoch);
+  }
   nn.deinit(&nn);
 
 donedone:
