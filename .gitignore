@@ -1,5 +1,4 @@
-outdata/
-out.txt
+.d/
 test-nn
 *.asm
 *.o

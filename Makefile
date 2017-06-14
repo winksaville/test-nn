@@ -2,6 +2,9 @@
 # Parameters:
 #   DBG=0 or 1 (default = 0)
 
+# Remove builtin suffix rules
+.SUFFIXES:
+
 # _DBG will be 0 if DBG isn't defined on the command line
 _DBG = +$(DBG)
 ifeq ($(_DBG), +)
@@ -9,38 +12,61 @@ ifeq ($(_DBG), +)
 endif
 
 P1=10000000
-OUTPUT=out.txt
+
+depDir=.d
+outDir=out
+srcDir=src
+libDir=lib
+incDir=inc
+libDstDir=$(outDir)/$(libDir)
+
+# Make the depDir and dstDirs
+$(shell mkdir -p $(depDir) >/dev/null)
+$(shell mkdir -p $(libDstDir) >/dev/null)
 
 CC=clang
-CFLAGS=-O3 -g -Weverything -Werror -DDBG=$(_DBG)
+CFLAGS=-O3 -g -Weverything -Werror -I$(incDir) -DDBG=$(_DBG)
+DEPFLAGS = -MT $@ -MMD -MP -MF $(depDir)/$*.Td
+
 OD=objdump
 ODFLAGS=-S -M x86_64,intel
 
 LNK=$(CC)
 LNKFLAGS=-lm
 
-test-nn-obj-deps=NeuralNet.o NeuralNetIo.o rand0_1.o test-nn.o
+COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
+POSTCOMPILE = @mv -f $(depDir)/$*.Td $(depDir)/$*.d && touch $@
 
-all: test-nn
+LIBOBJS=$(libDstDir)/NeuralNet.o $(libDstDir)/NeuralNetIo.o \
+		$(libDstDir)/rand0_1.o
 
-rand0_1.o : rand0_1.c NeuralNet.h NeuralNetIo.h rand0_1.h Makefile
-	$(CC) $(CFLAGS) -c $< -o $@
+# My suffix rules
+$(libDstDir)/%.o: $(libDir)/%.c $(depDir)/%.d
+	$(COMPILE.c) -o $@ $<
+	$(POSTCOMPILE)
 
-NeuralNetIo.o : NeuralNetIo.c NeuralNet.h NeuralNetIo.h Makefile
-	$(CC) $(CFLAGS) -c $< -o $@
+$(outDir)/%.o: $(srcDir)/%.c
+	$(COMPILE.c) -o $@ $<
+	$(POSTCOMPILE)
 
-NeuralNet.o : NeuralNet.c NeuralNet.h rand0_1.h Makefile
-	$(CC) $(CFLAGS) -c $< -o $@
+$(depDir)/%.d: ;
+.PRECIOUS: $(depDir)/%.d
 
-test-nn.o : test-nn.c NeuralNet.h rand0_1.h Makefile
-	$(CC) $(CFLAGS) -c $< -o $@
+LIBSRCS= \
+	  $(libDir)/NeuralNet.c \
+	  $(libDir)/NeuralNetIo.c \
+	  $(libDir)/rand0_1.c
 
-test-nn : $(test-nn-obj-deps)
-	$(LNK) $(LNKFLAGS) $(test-nn-obj-deps)  -o $@
+all: $(outDir)/test-nn
+
+include $(wildcard $(patsubst %,$(DEPDIR)/%.d,$(basename $(LIBSRCS))))
+
+$(outDir)/test-nn : $(LIBOBJS) $(outDir)/test-nn.o
+	$(LNK) $(LIBOBJS) $(outDir)/test-nn.o $(LNKFLAGS) -o $@
 	$(OD) $(ODFLAGS) $@ > $@.asm
 
-test: test-nn
-	./test-nn $(P1)
+test: $(outDir)/test-nn
+	$(outDir)/test-nn $(P1)
 
 clean :
-	@rm -f test-nn $(test-nn-obj-deps) *.asm
+	@rm -rf $(outDir) $(depDir)
