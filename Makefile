@@ -8,7 +8,7 @@ ifeq ($(_DBG), +)
   _DBG = 0
 endif
 
-CNT=10000000
+P1=10000000
 OUTPUT=out.txt
 
 CC=clang
@@ -40,7 +40,7 @@ test-nn : $(test-nn-obj-deps)
 	$(OD) $(ODFLAGS) $@ > $@.asm
 
 test: test-nn
-	./test-nn $(CNT)
+	./test-nn $(P1)
 
 clean :
 	@rm -f test-nn $(test-nn-obj-deps) *.asm
