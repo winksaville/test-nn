@@ -1,4 +1,6 @@
 # Makefile for test-nn
+# The auto-dependency generation algorithm:
+#    http://make.mad-scientist.net/papers/advanced-auto-dependency-generation/
 # Parameters:
 #   DBG=0 or 1 (default = 0)
 
@@ -11,6 +13,7 @@ ifeq ($(_DBG), +)
   _DBG = 0
 endif
 
+# Default value for P1 parameter
 P1=10000000
 
 depDir=.d
@@ -37,9 +40,6 @@ LNKFLAGS=-lm
 COMPILE.c = $(CC) $(DEPFLAGS) $(CFLAGS) $(CPPFLAGS) $(TARGET_ARCH) -c
 POSTCOMPILE = @mv -f $(depDir)/$*.Td $(depDir)/$*.d && touch $@
 
-LIBOBJS=$(libDstDir)/NeuralNet.o $(libDstDir)/NeuralNetIo.o \
-		$(libDstDir)/rand0_1.o
-
 # My suffix rules
 $(libDstDir)/%.o: $(libDir)/%.c $(depDir)/%.d
 	$(COMPILE.c) -o $@ $<
@@ -56,6 +56,11 @@ LIBSRCS= \
 	  $(libDir)/NeuralNet.c \
 	  $(libDir)/NeuralNetIo.c \
 	  $(libDir)/rand0_1.c
+
+LIBOBJS= \
+	  $(libDstDir)/NeuralNet.o \
+	  $(libDstDir)/NeuralNetIo.o \
+	  $(libDstDir)/rand0_1.o
 
 all: $(outDir)/test-nn
 
